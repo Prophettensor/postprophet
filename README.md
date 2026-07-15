@@ -1,56 +1,68 @@
 # SocialQuant
 
-A prediction engine for social media reach.
+Prediction engine for social media reach.
 
 Given who is posting, what they're posting, where they're posting, and a target — SocialQuant predicts the probability of hitting that target within a given timeframe. It's the technology layer that lets agents grade their own content before it goes live.
 
-## How it works
-
-```
-Agent generates tweet
-    ↓
-SocialQuant predicts: 72% chance of 10k impressions in 24h
-    ↓
-Reasoning: "hook is weak, trending topic is fading, post at 9am instead"
-    ↓
-Agent modifies tweet
-    ↓
-SocialQuant re-predicts: 85% chance
-    ↓
-Ship when probability clears threshold
-```
-
-## The eval
-
-Live, real-time, ungameable.
-
-1. X API filtered stream captures real tweets as they're posted
-2. SocialQuant predicts impression probability at 1h, 4h, 24h
-3. Impressions resolve naturally
-4. Brier score measures prediction accuracy
-5. PRs to the engine are tested against the same tweet batch — does accuracy improve?
-
-No sandbox. No historical replay. The engine gets the same data a real marketing agent would have.
-
-## Get started
-
-SocialQuant is in development. The prediction engine and eval harness are being built.
+## Quickstart
 
 ```bash
 git clone https://github.com/buckZz7/socialquant.git
 cd socialquant
+uv venv && source .venv/bin/activate
+uv pip install httpx openai
+cp .env.example .env  # fill in your keys
+python socialquant.py run
 ```
 
-## Project structure
+## How it works
 
 ```
-socialquant/
-├── NAPKIN.md         # Project vision
-├── README.md         # This file
-├── docs/
-│   └── index.html    # Landing page
-└── LICENSE           # MIT
+1. capture  — X API search captures real tweets, gathers context (author stats, early metrics, trending)
+2. predict  — LLM predicts probability of hitting target impressions within timeframe
+3. wait     — timeframe hours pass (default 4h)
+4. resolve  — check actual impressions via X API
+5. score    — Brier score measures prediction accuracy
+6. report   — track accuracy over time
 ```
+
+## Usage
+
+```bash
+python socialquant.py capture     # Capture real tweets and predict
+python socialquant.py resolve     # Resolve pending predictions and score
+python socialquant.py report      # Show score history
+python socialquant.py run         # Capture → resolve → report
+```
+
+## Environment
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `X_BEARER_TOKEN` | — | X API v2 bearer token |
+| `OPENAI_API_KEY` | — | OpenAI API key |
+| `SOCIALQUANT_MODEL` | `gpt-4o-mini` | LLM model |
+| `SOCIALQUANT_TIMEFRAME` | `4` | Hours before resolving |
+| `SOCIALQUANT_TARGET` | `10000` | Target impressions |
+| `SOCIALQUANT_BATCH` | `20` | Tweets per capture batch |
+
+## The eval
+
+Live, real-time, ungameable. The engine predicts on real tweets captured from the X API. Impressions resolve naturally over the timeframe. Brier score measures prediction accuracy. PRs to the engine are scored against the same tweet batch — does accuracy improve?
+
+## Architecture
+
+SocialQuant is a **harness** — code that controls the flow:
+
+1. **Capture** (code): X API search, context gathering
+2. **Predict** (agent): LLM reasons from context → probability + reasoning
+3. **Store** (code): JSONL prediction records
+4. **Wait** (code): timeframe timer
+5. **Resolve** (code): X API impression check
+6. **Score** (code): Brier score calculation
+7. **Report** (code): score history
+
+The agent is one function: `predict(context) → {probability, reasoning}`. Everything else is harness.
 
 ## License
 
