@@ -173,6 +173,8 @@ Consider:
 - Time of day the tweet was posted (or will be posted) and whether that's a high-engagement window
 - Whether the author's audience is active at that time
 
+{llm_only_note}
+
 Return JSON:
 {{
   "probability": <float 0.0-1.0>,
@@ -207,23 +209,54 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
 
     baseline = context.get("author_baseline", {})
 
+    # If no X API data, tell the LLM to infer from the username
+    has_x = context.get("has_x_data", True)
+    if not has_x:
+        llm_only_note = "NOTE: No X API data available. You must infer the author's approximate follower count, engagement baseline, and audience size from your knowledge of this X account. The follower count shows as 0 because no API was called — do not take it literally. Use your training data knowledge of this account. If you truly don't recognize the account, assume 500-5,000 followers and a modest engagement baseline."
+        followers_str = "unknown (infer from username)"
+        following_str = "unknown"
+        avg_imp = 0
+        avg_likes = 0
+        avg_retweets = 0
+        baseline_sample = 0
+        recent_str = "  (no recent data — infer from knowledge)"
+        likes = 0
+        retweets = 0
+        replies = 0
+    else:
+        llm_only_note = ""
+        followers_str = context["author"]["followers"]
+        following_str = context["author"]["following"]
+        avg_imp = baseline.get("avg_impressions", 0)
+        avg_likes = baseline.get("avg_likes", 0)
+        avg_retweets = baseline.get("avg_retweets", 0)
+        baseline_sample = baseline.get("sample_size", 0)
+        recent_lines = []
+        for t in context.get("author_recent_top_tweets", []):
+            recent_lines.append(f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes")
+        recent_str = "\n".join(recent_lines) if recent_lines else "  (no recent data)"
+        likes = context["tweet_metrics_at_capture"]["likes"]
+        retweets = context["tweet_metrics_at_capture"]["retweets"]
+        replies = context["tweet_metrics_at_capture"]["replies"]
+
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
         timeframe=tf,
         text=context["text"],
         username=context["author"]["username"],
-        followers=context["author"]["followers"],
-        following=context["author"]["following"],
-        avg_impressions=baseline.get("avg_impressions", 0),
-        avg_likes=baseline.get("avg_likes", 0),
-        avg_retweets=baseline.get("avg_retweets", 0),
-        baseline_sample=baseline.get("sample_size", 0),
+        followers=followers_str,
+        following=following_str,
+        avg_impressions=avg_imp,
+        avg_likes=avg_likes,
+        avg_retweets=avg_retweets,
+        baseline_sample=baseline_sample,
         recent_tweets=recent_str,
-        likes=context["tweet_metrics_at_capture"]["likes"],
-        retweets=context["tweet_metrics_at_capture"]["retweets"],
-        replies=context["tweet_metrics_at_capture"]["replies"],
+        likes=likes,
+        retweets=retweets,
+        replies=replies,
         posted_at=context.get("planned_post_time", context.get("created_at", "unknown")),
         trending=", ".join(context.get("trending_topics", [])) or "none available",
+        llm_only_note=llm_only_note,
     )
 
     resp = client.chat.completions.create(
@@ -478,6 +511,10 @@ def predict_tweet(
 ) -> dict:
     """Predict reach for an unpublished tweet (product mode).
 
+    If X_BEARER_TOKEN is set, fetches real author data.
+    If not, falls back to LLM-only mode — the model reasons from the
+    username and tweet text alone (less accurate but works without X API).
+
     Args:
         text: The tweet text
         author_username: X handle (without @)
@@ -494,37 +531,47 @@ def predict_tweet(
     tf = timeframe_hours or TIMEFRAME_HOURS
     post_time = planned_post_time or datetime.now(timezone.utc).isoformat()
 
-    # Fetch author info
-    url = f"https://api.twitter.com/2/users/by/username/{author_username}"
-    resp = httpx.get(url, headers=x_headers(), params={"user.fields": "public_metrics,username"}, timeout=15)
-    resp.raise_for_status()
-    user_data = resp.json().get("data", {})
-    user_id = user_data.get("id", "")
-    author_metrics = user_data.get("public_metrics", {})
-
-    # Fetch author baseline
+    # Try to fetch author info from X API
+    # If no bearer token or API fails, fall back to LLM-only mode
+    author_metrics = {"followers_count": 0, "following_count": 0, "tweet_count": 0}
     baseline = {"avg_impressions": 0, "avg_likes": 0, "avg_retweets": 0, "sample_size": 0}
     recent_samples = []
-    if user_id:
-        try:
-            recent = get_author_recent_tweets(user_id)
-            baseline = compute_author_baseline(recent)
-            recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
-            for t in recent_sorted[:3]:
-                recent_samples.append({
-                    "text": t.get("text", "")[:100],
-                    "impressions": t.get("public_metrics", {}).get("impression_count", 0),
-                    "likes": t.get("public_metrics", {}).get("like_count", 0),
-                    "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
-                })
-        except Exception:
-            pass
+    trending = []
+    has_x_data = False
 
-    # Try to get trending topics
-    try:
-        trending = get_trending_topics()
-    except Exception:
-        trending = []
+    if X_BEARER_TOKEN:
+        try:
+            url = f"https://api.twitter.com/2/users/by/username/{author_username}"
+            resp = httpx.get(url, headers=x_headers(), params={"user.fields": "public_metrics,username"}, timeout=15)
+            resp.raise_for_status()
+            user_data = resp.json().get("data", {})
+            user_id = user_data.get("id", "")
+            author_metrics = user_data.get("public_metrics", {})
+
+            # Fetch author baseline
+            if user_id:
+                try:
+                    recent = get_author_recent_tweets(user_id)
+                    baseline = compute_author_baseline(recent)
+                    recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+                    for t in recent_sorted[:3]:
+                        recent_samples.append({
+                            "text": t.get("text", "")[:100],
+                            "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                            "likes": t.get("public_metrics", {}).get("like_count", 0),
+                            "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+                        })
+                except Exception:
+                    pass
+
+            try:
+                trending = get_trending_topics()
+            except Exception:
+                pass
+
+            has_x_data = True
+        except Exception as e:
+            print(f"  (X API unavailable: {e}. Using LLM-only mode.)")
 
     context = {
         "text": text,
@@ -541,19 +588,21 @@ def predict_tweet(
         "author_recent_top_tweets": recent_samples,
         "tweet_metrics_at_capture": {"likes": 0, "retweets": 0, "replies": 0},
         "trending_topics": trending,
+        "has_x_data": has_x_data,
     }
 
     prediction = predict(context, target=tgt, timeframe=tf)
 
     # Include a context summary so the caller understands what was considered
     prediction["context_summary"] = {
-        "who": f"@{author_username} ({author_metrics.get('followers_count', 0)} followers)",
+        "who": f"@{author_username}" + (f" ({author_metrics.get('followers_count', 0):,} followers)" if has_x_data else " (no X API data — LLM inferred)"),
         "what": text[:100],
         "when": post_time,
         "where": platform,
         "target": f"{tgt} impressions in {tf}h after posting",
         "author_baseline": baseline,
         "trending_at_prediction_time": trending[:5] if trending else [],
+        "x_api_used": has_x_data,
     }
 
     return prediction
