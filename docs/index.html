@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SocialQuant — Predict social media reach</title>
+<title>PostProphet — Predict social media reach</title>
 <meta name="description" content="A prediction engine for social media reach. Given who, what, where, and a target — predict the probability of hitting it.">
 <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <script>
 (function(){
-  var t=localStorage.getItem('socialquant-theme');
+  var t=localStorage.getItem('postprophet-theme');
   if(!t)t='dark';
   var meta=document.getElementById('theme-color-meta');
   if(meta)meta.content=t==='dark'?'#0a0a0a':'#faf8f5';
@@ -121,10 +121,10 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <!-- NAV -->
 <nav>
   <div class="inner">
-    <a href="/" class="logo">SocialQuant</a>
+    <a href="/" class="logo">PostProphet</a>
     <div class="links">
       <a href="#how">How it works</a>
-      <a href="https://github.com/buckZz7/socialquant">GitHub</a>
+      <a href="https://github.com/buckZz7/postprophet">GitHub</a>
       <button class="icon-btn" onclick="toggleTheme()" id="themeBtn"></button>
     </div>
   </div>
@@ -137,10 +137,10 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     Prediction engine for social media reach
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>Given who, what, where, and a target — SocialQuant predicts the probability of your content hitting it. Not a dashboard. Not analytics. The prediction layer that lets agents grade their own content.</p>
+  <p>Given who, what, where, and a target — PostProphet predicts the probability of your content hitting it. Not a dashboard. Not analytics. The prediction layer that lets agents grade their own content.</p>
   <div class="btns">
     <a href="#how" class="btn btn-primary">How it works</a>
-    <a href="https://github.com/buckZz7/socialquant" class="btn btn-ghost">GitHub</a>
+    <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
   </div>
 
   <!-- Prediction demo -->
@@ -173,7 +173,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
       <div class="how-step">
         <div class="num">2</div>
         <div>
-          <h3>SocialQuant predicts</h3>
+          <h3>PostProphet predicts</h3>
           <p>Probability the content hits the target within the timeframe — plus reasoning explaining why and what would increase it.</p>
         </div>
       </div>
@@ -217,14 +217,14 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="cta-section">
   <h2>Stop guessing.<br>Start predicting.</h2>
   <p>The prediction layer for social media agents.</p>
-  <a href="https://github.com/buckZz7/socialquant" class="btn btn-primary">GitHub</a>
+  <a href="https://github.com/buckZz7/postprophet" class="btn btn-primary">GitHub</a>
 </div>
 
 <!-- FOOTER -->
 <footer>
   <div class="inner">
     <div class="brand">
-      <div style="font-weight:800;font-size:1.05em;margin-bottom:8px">SocialQuant</div>
+      <div style="font-weight:800;font-size:1.05em;margin-bottom:8px">PostProphet</div>
       <p>A prediction engine for social media reach. The technology layer that lets agents grade their own content.</p>
     </div>
   </div>
@@ -232,9 +232,9 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 </footer>
 
 <script>
-function getTheme(){return localStorage.getItem('socialquant-theme')||'dark'}
+function getTheme(){return localStorage.getItem('postprophet-theme')||'dark'}
 function applyTheme(){var t=getTheme();document.documentElement.setAttribute('data-theme',t);var btn=document.getElementById('themeBtn');if(btn)btn.innerHTML=t==='dark'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'}
-function toggleTheme(){var current=document.documentElement.getAttribute('data-theme')||'dark';var next=current==='dark'?'light':'dark';localStorage.setItem('socialquant-theme',next);applyTheme()}
+function toggleTheme(){var current=document.documentElement.getAttribute('data-theme')||'dark';var next=current==='dark'?'light':'dark';localStorage.setItem('postprophet-theme',next);applyTheme()}
 applyTheme();
 </script>
 

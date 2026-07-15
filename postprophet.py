@@ -1,5 +1,5 @@
 """
-SocialQuant — Prediction engine for social media reach.
+PostProphet — Prediction engine for social media reach.
 
 A harness that captures real tweets, gathers context, asks an LLM to predict
 impression probability, waits for resolution, and scores with Brier score.
@@ -17,10 +17,10 @@ from openai import OpenAI
 
 X_BEARER_TOKEN = os.environ.get("X_BEARER_TOKEN", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.environ.get("SOCIALQUANT_MODEL", "gpt-4o-mini")
-TIMEFRAME_HOURS = int(os.environ.get("SOCIALQUANT_TIMEFRAME", "4"))
-TARGET_IMPRESSIONS = int(os.environ.get("SOCIALQUANT_TARGET", "10000"))
-BATCH_SIZE = int(os.environ.get("SOCIALQUANT_BATCH", "20"))
+OPENAI_MODEL = os.environ.get("POSTPROPHET_MODEL", "gpt-4o-mini")
+TIMEFRAME_HOURS = int(os.environ.get("POSTPROPHET_TIMEFRAME", "1"))
+TARGET_IMPRESSIONS = int(os.environ.get("POSTPROPHET_TARGET", "10000"))
+BATCH_SIZE = int(os.environ.get("POSTPROPHET_BATCH", "20"))
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 PREDICTIONS_FILE = os.path.join(DATA_DIR, "predictions.jsonl")
@@ -69,26 +69,84 @@ def get_trending_topics():
     return [t["name"] for t in trends[:10]]
 
 
+def get_author_recent_tweets(author_id, max_results=20):
+    """Fetch an author's recent tweets to compute engagement baseline."""
+    url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
+    params = {
+        "max_results": min(max_results, 100),
+        "tweet.fields": "public_metrics,created_at",
+        "exclude": "retweets,replies",
+    }
+    resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
+    if resp.status_code != 200:
+        return []
+    data = resp.json()
+    return data.get("data", [])
+
+
+def compute_author_baseline(recent_tweets: list) -> dict:
+    """Compute engagement baseline from an author's recent tweets."""
+    if not recent_tweets:
+        return {"avg_impressions": 0, "avg_likes": 0, "avg_retweets": 0, "sample_size": 0}
+
+    impressions = [t.get("public_metrics", {}).get("impression_count", 0) for t in recent_tweets]
+    likes = [t.get("public_metrics", {}).get("like_count", 0) for t in recent_tweets]
+    retweets = [t.get("public_metrics", {}).get("retweet_count", 0) for t in recent_tweets]
+
+    n = len(recent_tweets)
+    return {
+        "avg_impressions": sum(impressions) / n,
+        "max_impressions": max(impressions),
+        "min_impressions": min(impressions),
+        "avg_likes": sum(likes) / n,
+        "avg_retweets": sum(retweets) / n,
+        "sample_size": n,
+    }
+
+
 # ── Context gathering ────────────────────────────────────────────────────
 
 
-def gather_context(tweet_data, includes):
+def gather_context(tweet_data, includes, fetch_baseline=True):
     """Build the context object the LLM will use for prediction."""
     authors = {u["id"]: u for u in includes.get("users", [])}
     author = authors.get(tweet_data.get("author_id", ""), {})
     author_metrics = author.get("public_metrics", {})
     tweet_metrics = tweet_data.get("public_metrics", {})
+    author_id = tweet_data.get("author_id", "")
+
+    # Compute engagement baseline from recent tweets
+    baseline = {"avg_impressions": 0, "avg_likes": 0, "avg_retweets": 0, "sample_size": 0}
+    recent_samples = []
+    if fetch_baseline and author_id:
+        try:
+            recent = get_author_recent_tweets(author_id)
+            baseline = compute_author_baseline(recent)
+            # Keep top 3 recent tweets for context (text + impressions)
+            recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+            for t in recent_sorted[:3]:
+                recent_samples.append({
+                    "text": t.get("text", "")[:100],
+                    "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                    "likes": t.get("public_metrics", {}).get("like_count", 0),
+                    "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+                })
+        except Exception:
+            pass
 
     return {
         "tweet_id": tweet_data["id"],
         "text": tweet_data.get("text", ""),
         "created_at": tweet_data.get("created_at", ""),
+        "planned_post_time": tweet_data.get("created_at", ""),  # In eval mode, this is when it was actually posted. In product mode, this is when it WILL be posted.
         "author": {
             "username": author.get("username", "unknown"),
             "followers": author_metrics.get("followers_count", 0),
             "following": author_metrics.get("following_count", 0),
             "tweet_count": author_metrics.get("tweet_count", 0),
         },
+        "author_baseline": baseline,
+        "author_recent_top_tweets": recent_samples,
         "tweet_metrics_at_capture": {
             "likes": tweet_metrics.get("like_count", 0),
             "retweets": tweet_metrics.get("retweet_count", 0),
@@ -107,42 +165,64 @@ PREDICTION_PROMPT = """You are a social media reach forecasting engine.
 Given a tweet and its context, predict the probability (0.0 to 1.0) that this tweet will reach {target} impressions within {timeframe} hours of being posted.
 
 Consider:
-- Author's follower count and engagement baseline
+- Author's follower count AND engagement baseline (their avg impressions per tweet)
+- How this tweet compares to their recent top-performing tweets
 - Early engagement signals (likes, retweets, replies at capture time)
 - Tweet content (hook quality, topic relevance, media, length)
 - What's currently trending and whether the tweet relates
-- Time of day and posting patterns
+- Time of day the tweet was posted (or will be posted) and whether that's a high-engagement window
+- Whether the author's audience is active at that time
 
 Return JSON:
 {{
   "probability": <float 0.0-1.0>,
-  "reasoning": "<1-2 sentences explaining the prediction>",
+  "reasoning": "<2-3 sentences explaining the prediction, referencing specific data points>",
   "suggestions": "<1 sentence on what would improve the prediction>"
 }}
 
 Tweet: {text}
-Author: @{username} ({followers} followers)
-Early metrics: {likes} likes, {retweets} retweets, {replies} replies
-Posted at: {created_at}
-Trending: {trending}
+Author: @{username} ({followers} followers, {following} following)
+Author baseline: avg {avg_impressions:.0f} impressions/tweet, avg {avg_likes:.0f} likes/tweet, avg {avg_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
+Author's recent top tweets:
+{recent_tweets}
+Early metrics (at capture): {likes} likes, {retweets} retweets, {replies} replies
+Posted at: {posted_at}
 Timeframe: {timeframe}h
-Target: {target} impressions"""
+Target: {target} impressions
+Trending: {trending}"""
 
 
-def predict(context: dict) -> dict:
+def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     """Call LLM to predict impression probability."""
     client = OpenAI(api_key=OPENAI_API_KEY)
 
+    tgt = target or TARGET_IMPRESSIONS
+    tf = timeframe or TIMEFRAME_HOURS
+
+    # Format recent top tweets for the prompt
+    recent_lines = []
+    for t in context.get("author_recent_top_tweets", []):
+        recent_lines.append(f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes")
+    recent_str = "\n".join(recent_lines) if recent_lines else "  (no recent data)"
+
+    baseline = context.get("author_baseline", {})
+
     prompt = PREDICTION_PROMPT.format(
-        target=TARGET_IMPRESSIONS,
-        timeframe=TIMEFRAME_HOURS,
+        target=tgt,
+        timeframe=tf,
         text=context["text"],
         username=context["author"]["username"],
         followers=context["author"]["followers"],
+        following=context["author"]["following"],
+        avg_impressions=baseline.get("avg_impressions", 0),
+        avg_likes=baseline.get("avg_likes", 0),
+        avg_retweets=baseline.get("avg_retweets", 0),
+        baseline_sample=baseline.get("sample_size", 0),
+        recent_tweets=recent_str,
         likes=context["tweet_metrics_at_capture"]["likes"],
         retweets=context["tweet_metrics_at_capture"]["retweets"],
         replies=context["tweet_metrics_at_capture"]["replies"],
-        created_at=context["created_at"],
+        posted_at=context.get("planned_post_time", context.get("created_at", "unknown")),
         trending=", ".join(context.get("trending_topics", [])) or "none available",
     )
 
@@ -221,11 +301,11 @@ def save_score(score_data: dict):
 
 def capture_phase():
     """Phase 1: Capture real tweets and predict."""
-    print("\n{'='*60}")
-    print(f"  SocialQuant — Capture Phase")
+    print("\n" + "=" * 60)
+    print("  PostProphet — Capture Phase")
     print(f"  Target: {TARGET_IMPRESSIONS} impressions in {TIMEFRAME_HOURS}h")
     print(f"  Batch: {BATCH_SIZE} tweets")
-    print(f"{'='*60}\n")
+    print("=" * 60 + "\n")
 
     try:
         results = search_recent_tweets(max_results=BATCH_SIZE)
@@ -248,10 +328,14 @@ def capture_phase():
 
     predictions = []
     for i, tweet in enumerate(tweets, 1):
-        context = gather_context(tweet, includes)
+        print(f"  [{i}/{len(tweets)}] Gathering context for tweet {tweet['id']}...")
+
+        context = gather_context(tweet, includes, fetch_baseline=True)
         context["trending_topics"] = trending
 
-        print(f"  [{i}/{len(tweets)}] @{context['author']['username']}: {context['text'][:60]}...")
+        baseline = context.get("author_baseline", {})
+        print(f"    @{context['author']['username']} ({context['author']['followers']} followers, avg {baseline.get('avg_impressions', 0):.0f} imp/tweet)")
+        print(f"    Tweet: {context['text'][:80]}...")
 
         try:
             prediction = predict(context)
@@ -277,18 +361,19 @@ def capture_phase():
         predictions.append(record)
 
         prob = prediction.get("probability", 0.5)
-        reasoning = prediction.get("reasoning", "")[:80]
+        reasoning = prediction.get("reasoning", "")[:100]
         print(f"    → {prob:.0%} | {reasoning}")
+        print()
 
-    print(f"\nCaptured {len(predictions)} predictions. Waiting {TIMEFRAME_HOURS}h for resolution.")
+    print(f"Captured {len(predictions)} predictions. Waiting {TIMEFRAME_HOURS}h for resolution.")
     return predictions
 
 
 def resolve_phase():
     """Phase 2: Check predictions whose timeframe has elapsed, score them."""
-    print("\n{'='*60}")
-    print("  SocialQuant — Resolve Phase")
-    print(f"{'='*60}\n")
+    print("\n" + "=" * 60)
+    print("  PostProphet — Resolve Phase")
+    print("=" * 60 + "\n")
 
     predictions = load_predictions()
     now = datetime.now(timezone.utc)
@@ -317,7 +402,9 @@ def resolve_phase():
 
         hit = actual >= p["target"]
         prob = p["prediction"]["probability"]
-        print(f"  @{p['context']['author']['username']}: predicted {prob:.0%}, got {actual:,} → {'HIT' if hit else 'MISS'}")
+        username = p["context"]["author"]["username"]
+        baseline = p["context"].get("author_baseline", {}).get("avg_impressions", 0)
+        print(f"  @{username}: predicted {prob:.0%}, got {actual:,} (baseline avg: {baseline:.0f}) → {'HIT' if hit else 'MISS'}")
 
         resolved_batch.append(p)
 
@@ -355,15 +442,15 @@ def report_phase():
         print("\nNo scores yet.")
         return
 
-    print("\n{'='*60}")
-    print("  SocialQuant — Score History")
-    print(f"{'='*60}\n")
+    print("\n" + "=" * 60)
+    print("  PostProphet — Score History")
+    print("=" * 60 + "\n")
 
     with open(SCORES_FILE) as f:
         scores = [json.loads(line) for line in f if line.strip()]
 
     print(f"  {'Date':<24} {'Model':<20} {'Brier':<8} {'Batch':<6}")
-    print(f"  {'-'*60}")
+    print(f"  {'-' * 60}")
     for s in scores:
         date = s["scored_at"][:19]
         model = s["model"][:18]
@@ -378,6 +465,84 @@ def report_phase():
     print(f"  Total predictions: {sum(s['batch_size'] for s in scores)}")
 
 
+# ── Predict for an unpublished tweet (product mode) ─────────────────────
+
+
+def predict_tweet(
+    text: str,
+    author_username: str,
+    target: int = None,
+    timeframe_hours: int = None,
+    planned_post_time: str = None,
+) -> dict:
+    """Predict reach for an unpublished tweet (product mode).
+
+    Args:
+        text: The tweet text
+        author_username: X handle (without @)
+        target: Target impressions (default from config)
+        timeframe_hours: Prediction timeframe (default from config)
+        planned_post_time: ISO datetime when tweet will be posted (default: now)
+
+    Returns:
+        {probability, reasoning, suggestions}
+    """
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    tgt = target or TARGET_IMPRESSIONS
+    tf = timeframe_hours or TIMEFRAME_HOURS
+    post_time = planned_post_time or datetime.now(timezone.utc).isoformat()
+
+    # Fetch author info
+    url = f"https://api.twitter.com/2/users/by/username/{author_username}"
+    resp = httpx.get(url, headers=x_headers(), params={"user.fields": "public_metrics,username"}, timeout=15)
+    resp.raise_for_status()
+    user_data = resp.json().get("data", {})
+    user_id = user_data.get("id", "")
+    author_metrics = user_data.get("public_metrics", {})
+
+    # Fetch author baseline
+    baseline = {"avg_impressions": 0, "avg_likes": 0, "avg_retweets": 0, "sample_size": 0}
+    recent_samples = []
+    if user_id:
+        try:
+            recent = get_author_recent_tweets(user_id)
+            baseline = compute_author_baseline(recent)
+            recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+            for t in recent_sorted[:3]:
+                recent_samples.append({
+                    "text": t.get("text", "")[:100],
+                    "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                    "likes": t.get("public_metrics", {}).get("like_count", 0),
+                    "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+                })
+        except Exception:
+            pass
+
+    # Try to get trending topics
+    try:
+        trending = get_trending_topics()
+    except Exception:
+        trending = []
+
+    context = {
+        "text": text,
+        "planned_post_time": post_time,
+        "created_at": post_time,
+        "author": {
+            "username": author_username,
+            "followers": author_metrics.get("followers_count", 0),
+            "following": author_metrics.get("following_count", 0),
+            "tweet_count": author_metrics.get("tweet_count", 0),
+        },
+        "author_baseline": baseline,
+        "author_recent_top_tweets": recent_samples,
+        "tweet_metrics_at_capture": {"likes": 0, "retweets": 0, "replies": 0},
+        "trending_topics": trending,
+    }
+
+    return predict(context, target=tgt, timeframe=tf)
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────
 
 
@@ -388,21 +553,23 @@ def main():
 
     if len(sys.argv) < 2:
         print("""
-SocialQuant — Prediction engine for social media reach
+PostProphet — Prediction engine for social media reach
 
 Usage:
-  python socialquant.py capture     — Capture real tweets and predict
-  python socialquant.py resolve    — Resolve pending predictions and score
-  python socialquant.py report     — Show score history
-  python socialquant.py run        — Capture then resolve if anything is ready
+  python postprophet.py capture          — Capture real tweets and predict
+  python postprophet.py resolve          — Resolve pending predictions and score
+  python postprophet.py report           — Show score history
+  python postprophet.py run              — Capture → resolve → report
+  python postprophet.py predict <tweet>  — Predict reach for an unpublished tweet
+                                           (requires --author, optional: --target, --timeframe, --post-time)
 
 Environment:
-  X_BEARER_TOKEN      — X API v2 bearer token
-  OPENAI_API_KEY      — OpenAI API key
-  SOCIALQUANT_MODEL   — LLM model (default: gpt-4o-mini)
-  SOCIALQUANT_TIMEFRAME — Hours to wait before resolving (default: 4)
-  SOCIALQUANT_TARGET    — Target impressions (default: 10000)
-  SOCIALQUANT_BATCH     — Tweets per capture batch (default: 20)
+  X_BEARER_TOKEN        — X API v2 bearer token
+  OPENAI_API_KEY        — OpenAI API key
+  POSTPROPHET_MODEL     — LLM model (default: gpt-4o-mini)
+  POSTPROPHET_TIMEFRAME — Hours to wait before resolving (default: 1)
+  POSTPROPHET_TARGET    — Target impressions (default: 10000)
+  POSTPROPHET_BATCH     — Tweets per capture batch (default: 20)
 """)
         return
 
@@ -418,9 +585,63 @@ Environment:
         capture_phase()
         resolve_phase()
         report_phase()
+    elif cmd == "predict":
+        # Product mode: predict for an unpublished tweet
+        if len(sys.argv) < 3:
+            print("Usage: python postprophet.py predict <tweet_text> --author <username> [--target N] [--timeframe H] [--post-time ISO]")
+            return
+
+        # Parse args
+        tweet_text = ""
+        author = ""
+        target = None
+        timeframe = None
+        post_time = None
+
+        args = sys.argv[2:]
+        i = 0
+        while i < len(args):
+            if args[i] == "--author" and i + 1 < len(args):
+                author = args[i + 1].lstrip("@")
+                i += 2
+            elif args[i] == "--target" and i + 1 < len(args):
+                target = int(args[i + 1])
+                i += 2
+            elif args[i] == "--timeframe" and i + 1 < len(args):
+                timeframe = int(args[i + 1])
+                i += 2
+            elif args[i] == "--post-time" and i + 1 < len(args):
+                post_time = args[i + 1]
+                i += 2
+            else:
+                if tweet_text:
+                    tweet_text += " " + args[i]
+                else:
+                    tweet_text = args[i]
+                i += 1
+
+        if not author:
+            print("Error: --author is required for predict mode")
+            return
+
+        print(f"\nPredicting reach for @{author}...")
+        print(f"Tweet: {tweet_text[:100]}...")
+        print()
+
+        result = predict_tweet(
+            text=tweet_text,
+            author_username=author,
+            target=target,
+            timeframe_hours=timeframe,
+            planned_post_time=post_time,
+        )
+
+        print(f"Probability: {result.get('probability', 0):.0%}")
+        print(f"Reasoning: {result.get('reasoning', '')}")
+        print(f"Suggestions: {result.get('suggestions', '')}")
     else:
         print(f"Unknown command: {cmd}")
-        print("Commands: capture, resolve, report, run")
+        print("Commands: capture, resolve, report, run, predict")
 
 
 if __name__ == "__main__":

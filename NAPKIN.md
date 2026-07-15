@@ -1,22 +1,22 @@
-# SocialQuant
+# PostProphet
 
 ## What this is
 
 A prediction engine that forecasts the probability of social media content reaching a target engagement metric within a given timeframe. Given who is posting, what they're posting, where they're posting, and a target — it predicts the likelihood of hitting that target. The prediction comes with reasoning that can be used to improve the content before it goes live.
 
-This is the technology layer, not the product. Products built on top — tweet generators, marketing agents, growth tools — use SocialQuant to grade themselves and iterate toward content that performs.
+This is the technology layer, not the product. Products built on top — tweet generators, marketing agents, growth tools — use PostProphet to grade themselves and iterate toward content that performs.
 
 ## Who it's for
 
-Developers building social media tools, agents, and marketing products. Not end users directly. Anyone who needs their agent or tool to answer "will this post perform?" can use SocialQuant as the prediction layer.
+Developers building social media tools, agents, and marketing products. Not end users directly. Anyone who needs their agent or tool to answer "will this post perform?" can use PostProphet as the prediction layer.
 
 ## How it works
 
-**Inputs:** Author (account handle, follower count, engagement history), Content (text, media), Platform (start with X), Target (impression count), Timeframe (1h, 4h, 24h, 7d)
+**Inputs:** Author (account handle, follower count, engagement baseline from recent tweets, top recent tweets), Content (text, media), Platform (start with X), Target (impression count), Timeframe (1h, 4h, 24h, 7d), Planned post time (when it will be posted, not just what it says)
 
 **Output:** Probability (0.0–1.0) that the content will hit the target within the timeframe, plus reasoning explaining the prediction and what would increase it.
 
-**The feedback loop:** An agent generates content → SocialQuant predicts → if probability is low, reasoning suggests changes → agent modifies → SocialQuant re-predicts → repeat until probability clears a threshold → content ships.
+**The feedback loop:** An agent generates content → PostProphet predicts → if probability is low, reasoning suggests changes → agent modifies → PostProphet re-predicts → repeat until probability clears a threshold → content ships.
 
 **Extensible data inputs:** The engine tests any data point that might improve prediction accuracy — trending topics, competitor activity, time of day, media type, hashtag patterns, reply context. New data sources are A/B tested against real outcomes. If a data point improves accuracy, it stays.
 
@@ -26,7 +26,7 @@ Developers building social media tools, agents, and marketing products. Not end 
 - **Reasoning modifies content.** The engine doesn't just predict — it explains why and what would improve the prediction. This reasoning is what enables the feedback loop.
 - **Timeframe is a required input.** "Will this hit 10k?" is meaningless without "in how long?" Every prediction includes a timeframe.
 - **Live eval on real tweets.** The engine is evaluated against real tweets captured in real-time via X API filtered stream. The engine predicts, the impressions resolve naturally, predictions are scored. No sandbox, no historical replay — the engine gets the same data a real marketing agent would have.
-- **The engine is not the product.** SocialQuant is the prediction layer. Tweet generators, autonomous posting tools, marketing dashboards — those are products built on top.
+- **The engine is not the product.** PostProphet is the prediction layer. Tweet generators, autonomous posting tools, marketing dashboards — those are products built on top.
 - **Generalizes beyond X.** Start with X, but the concept applies to any platform with engagement metrics and an API.
 
 ## MVP scope
