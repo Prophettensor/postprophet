@@ -137,7 +137,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     Prediction engine for social media reach
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>Given who, what, where, and a target — PostProphet predicts the probability of your content hitting it. Not a dashboard. Not analytics. The prediction layer that lets agents grade their own content.</p>
+  <p>Given who, what, when, where, and a target — PostProphet predicts the probability of your content hitting it. Not a dashboard. Not analytics. The prediction layer that lets agents grade their own content.</p>
   <div class="btns">
     <a href="#how" class="btn btn-primary">How it works</a>
     <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
@@ -146,13 +146,13 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
   <!-- Prediction demo -->
   <div class="predict-demo">
     <div class="predict-input">
-      <div class="label">Input</div>
-      <div class="content">@techstartup · "We just shipped AI-powered bug prediction. Here's how it works 🧵"</div>
+      <div class="label">Who · What · When · Where · Target</div>
+      <div class="content">@techstartup · "We just shipped AI-powered bug prediction. Here's how it works 🧵" · Tomorrow 9am · X · 50k in 24h</div>
     </div>
     <div class="predict-output">
-      <div class="label">Prediction — 24h target: 50k</div>
+      <div class="label">Prediction</div>
       <div class="prob">73%</div>
-      <div class="reasoning">Strong hook, trending topic, good posting time. Add specific numbers in the thread to push past 80%.</div>
+      <div class="reasoning">Author averages 12k impressions/tweet. Strong hook, trending topic, good posting time. Add specific numbers in the thread to push past 80%.</div>
     </div>
   </div>
 </div>
@@ -166,15 +166,15 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
       <div class="how-step">
         <div class="num">1</div>
         <div>
-          <h3>Agent generates content</h3>
-          <p>An agent or human writes a tweet. Who's posting, what they're saying, where they're posting, target impressions, and timeframe.</p>
+          <h3>Five inputs</h3>
+          <p>Who is posting (author + engagement baseline). What they're saying (content). When it goes live (planned post time). Where (X for now). Target (impressions + timeframe).</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">2</div>
         <div>
           <h3>PostProphet predicts</h3>
-          <p>Probability the content hits the target within the timeframe — plus reasoning explaining why and what would increase it.</p>
+          <p>Probability the content hits the target within the timeframe — plus reasoning explaining why and what would increase it. Factors in author baseline, recent top tweets, trending topics, and time of day.</p>
         </div>
       </div>
       <div class="how-step">

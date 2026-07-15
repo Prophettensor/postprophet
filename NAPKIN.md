@@ -12,7 +12,7 @@ Developers building social media tools, agents, and marketing products. Not end 
 
 ## How it works
 
-**Inputs:** Author (account handle, follower count, engagement baseline from recent tweets, top recent tweets), Content (text, media), Platform (start with X), Target (impression count), Timeframe (1h, 4h, 24h, 7d), Planned post time (when it will be posted, not just what it says)
+**Inputs:** Who (author handle, follower count, engagement baseline from recent tweets, top recent tweets), What (content text, media), When (planned post time — when it will go live), Where (platform — X for now, architecture supports more), Target (impression count + timeframe to measure)
 
 **Output:** Probability (0.0–1.0) that the content will hit the target within the timeframe, plus reasoning explaining the prediction and what would increase it.
 

@@ -474,6 +474,7 @@ def predict_tweet(
     target: int = None,
     timeframe_hours: int = None,
     planned_post_time: str = None,
+    platform: str = "x",
 ) -> dict:
     """Predict reach for an unpublished tweet (product mode).
 
@@ -481,11 +482,12 @@ def predict_tweet(
         text: The tweet text
         author_username: X handle (without @)
         target: Target impressions (default from config)
-        timeframe_hours: Prediction timeframe (default from config)
+        timeframe_hours: Hours after posting to measure (default from config)
         planned_post_time: ISO datetime when tweet will be posted (default: now)
+        platform: Platform identifier (default: "x" — only X supported)
 
     Returns:
-        {probability, reasoning, suggestions}
+        {probability, reasoning, suggestions, context_summary}
     """
     client = OpenAI(api_key=OPENAI_API_KEY)
     tgt = target or TARGET_IMPRESSIONS
@@ -528,6 +530,7 @@ def predict_tweet(
         "text": text,
         "planned_post_time": post_time,
         "created_at": post_time,
+        "platform": platform,
         "author": {
             "username": author_username,
             "followers": author_metrics.get("followers_count", 0),
@@ -540,7 +543,20 @@ def predict_tweet(
         "trending_topics": trending,
     }
 
-    return predict(context, target=tgt, timeframe=tf)
+    prediction = predict(context, target=tgt, timeframe=tf)
+
+    # Include a context summary so the caller understands what was considered
+    prediction["context_summary"] = {
+        "who": f"@{author_username} ({author_metrics.get('followers_count', 0)} followers)",
+        "what": text[:100],
+        "when": post_time,
+        "where": platform,
+        "target": f"{tgt} impressions in {tf}h after posting",
+        "author_baseline": baseline,
+        "trending_at_prediction_time": trending[:5] if trending else [],
+    }
+
+    return prediction
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────

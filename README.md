@@ -2,7 +2,7 @@
 
 Prediction engine for social media reach.
 
-Given who is posting, what they're posting, where they're posting, and a target — PostProphet predicts the probability of hitting that target within a given timeframe. It's the technology layer that lets agents grade their own content before it goes live.
+Given who is posting, what they're posting, when they're posting, where they're posting, and a target — PostProphet predicts the probability of hitting that target within a given timeframe. It's the technology layer that lets agents grade their own content before it goes live.
 
 ## Quickstart
 
