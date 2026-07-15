@@ -61,10 +61,10 @@ The engine fetches the author's recent tweets to build an engagement baseline, g
 |----------|---------|-------------|
 | `X_BEARER_TOKEN` | — | X API v2 bearer token |
 | `OPENAI_API_KEY` | — | OpenAI API key |
-| `SOCIALQUANT_MODEL` | `gpt-4o-mini` | LLM model |
-| `SOCIALQUANT_TIMEFRAME` | `1` | Hours before resolving |
-| `SOCIALQUANT_TARGET` | `10000` | Target impressions |
-| `SOCIALQUANT_BATCH` | `20` | Tweets per capture batch |
+| `POSTPROPHET_MODEL` | `gpt-4o-mini` | LLM model |
+| `POSTPROPHET_TIMEFRAME` | `1` | Hours before resolving |
+| `POSTPROPHET_TARGET` | `10000` | Target impressions |
+| `POSTPROPHET_BATCH` | `20` | Tweets per capture batch |
 
 ## The eval
 

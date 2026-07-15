@@ -1,5 +1,5 @@
 [project]
-name = "socialquant"
+name = "postprophet"
 version = "0.1.0"
 description = "Prediction engine for social media reach"
 license = "MIT"
