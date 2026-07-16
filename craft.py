@@ -71,52 +71,55 @@ def draft_tweet(client, topic, author, hit_tweet=None, miss_tweet=None, previous
     if hit_tweet or miss_tweet:
         ref_lines = []
         if hit_tweet:
-            ref_lines.append(f"THEIR HIT (p75, {hit_tweet['impressions']:,} impressions): \"{hit_tweet['text']}\"")
+            ref_lines.append(f"THEIR BEST TWEET ({hit_tweet['impressions']:,} impressions): \"{hit_tweet['text']}\"")
         if miss_tweet:
-            ref_lines.append(f"THEIR MISS (p25, {miss_tweet['impressions']:,} impressions): \"{miss_tweet['text']}\"")
+            ref_lines.append(f"THEIR WORST TWEET ({miss_tweet['impressions']:,} impressions): \"{miss_tweet['text']}\"")
         ref_section = f"""
-Author's reference tweets (these are REAL examples of what works and what doesn't for this account):
+Author's reference tweets (REAL examples of what works and what doesn't for this account):
 {chr(10).join(ref_lines)}
 
-Study the hit tweet's structure — hook type, length, tone, format. Match it.
-Study the miss tweet's patterns — avoid them.
+CRITICAL: Your tweet must structurally resemble their best tweet — same hook style, similar length, same tone. Do NOT write generic hype. Do NOT use exclamation marks unless their best tweet does. Do NOT add hashtags unless their best tweet has them. Do NOT ask rhetorical questions unless their best tweet does. Mirror what actually works.
 """
     
     if previous_tweet is None:
         # First draft — just write the tweet
-        prompt = f"""You are a social media content writer for @{author} on X.
+        prompt = f"""You are a ghostwriter for @{author} on X. You write tweets that sound like them and perform like their best work.
 
 Write a single tweet about: {topic}
 {ref_section}
 Rules:
 - Maximum 280 characters
-- Match the voice and structure of their hit tweet
-- Be bold and specific, not vague
+- Match the voice, length, and hook style of their best tweet
+- Be specific and concrete, not vague or hype-y
+- No exclamation marks, no hashtags, no rhetorical questions unless their best tweet uses them
+- Say something real, not "the future is here"
 - One tweet only, no threads
 
 Return only the tweet text, nothing else."""
     else:
         # Revision — use PostProphet's feedback to improve
         pattern = feedback.get("pattern_analysis", "")
-        prompt = f"""You are revising a tweet for @{author} on X.
+        prompt = f"""You are revising a tweet for @{author} on X. The previous version wasn't good enough.
 
 Current tweet:
 "{previous_tweet}"
 
-PostProphet feedback (treat this as expert editorial guidance from a managing editor):
+PostProphet feedback (expert editorial guidance):
 - Probability of reaching 2x median: {feedback['probability']:.0%}
 - Reasoning: {feedback['reasoning']}
 - Pattern analysis: {pattern}
 - Suggestion: {feedback['suggestions']}
 {ref_section}
-Revise the tweet to address the feedback. Be specific:
-- If it says shorten, cut words
-- If it says match the hit tweet's hook, study the hit tweet above and use a similar opening
-- If it says drop hashtags, drop them
-- Don't just shuffle words — genuinely change the approach if needed
+Rewrite the tweet. Do NOT just tweak words — change the approach entirely if needed.
+
+If the feedback says "open with a bold claim under 15 words," your tweet MUST start with a bold claim under 15 words. Not approximately. Exactly.
+If the feedback says "drop hashtags," there must be zero hashtags.
+If the feedback says "match the structure of their best tweet," look at the best tweet above and use the same opening style, similar length, same tone.
 
 Rules:
 - Maximum 280 characters
+- No exclamation marks, no hashtags, no rhetorical questions unless their best tweet uses them
+- Be concrete and specific, not vague
 - One tweet only, no threads
 - Return only the tweet text, nothing else"""
 
