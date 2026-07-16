@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PostProphet — Predict social media reach</title>
-<meta name="description" content="A prediction harness for social media reach. Given who, what, where, and a target — predict the probability of hitting it.">
+<title>PostProphet — Predict reach before you post</title>
+<meta name="description" content="A prediction harness that forecasts tweet reach. Give it who, what, when, and a target — it predicts the probability of hitting it.">
 <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -124,6 +124,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     <a href="/" class="logo">PostProphet</a>
     <div class="links">
       <a href="#how">How it works</a>
+      <a href="#eval">The eval</a>
       <a href="https://github.com/buckZz7/postprophet">GitHub</a>
       <button class="icon-btn" onclick="toggleTheme()" id="themeBtn"></button>
     </div>
@@ -134,10 +135,10 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="hero">
   <div class="hero-badge">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
-    Prediction harness for social media reach
+    Reach prediction for X
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>Given who, what, when, where, and a target — PostProphet predicts the probability of your content hitting it. Not a dashboard. Not analytics. The prediction layer that lets agents grade their own content.</p>
+  <p>Give PostProphet who's posting, what they're saying, when, and a target. It predicts the probability of hitting that target — plus reasoning on what would improve it.</p>
   <div class="btns">
     <a href="#how" class="btn btn-primary">How it works</a>
     <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
@@ -161,27 +162,27 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="container" id="how">
   <div class="section">
     <h2 class="section-title">How it works</h2>
-    <p class="section-sub">Not a posting tool. Not a dashboard. The prediction layer that makes agents better marketers.</p>
+    <p class="section-sub">Not a dashboard. Not analytics. A prediction harness that makes agents better marketers.</p>
     <div class="how-grid">
       <div class="how-step">
         <div class="num">1</div>
         <div>
           <h3>Five inputs</h3>
-          <p>Who is posting (author + engagement baseline). What they're saying (content). When it goes live (planned post time). Where (X for now). Target (impressions + timeframe).</p>
+          <p>Who is posting (author + their engagement baseline). What they're saying (the tweet). When it goes live. Where (X for now). Target (impressions + timeframe).</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">2</div>
         <div>
           <h3>PostProphet predicts</h3>
-          <p>Probability the content hits the target within the timeframe — plus reasoning explaining why and what would increase it. Factors in author baseline, recent top tweets, trending topics, and time of day.</p>
+          <p>Probability of hitting the target within the timeframe — plus a point estimate and reasoning explaining the prediction. Factors in author baseline, recent top tweets, trending topics, and time of day.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">3</div>
         <div>
-          <h3>Agent iterates</h3>
-          <p>Low probability? The reasoning tells the agent what to change. Modify, re-predict, repeat until it clears the threshold. Then ship.</p>
+          <h3>Iterate until it ships</h3>
+          <p>Low probability? The reasoning tells the agent what to change. Modify, re-predict, repeat until it clears the threshold. Then post.</p>
         </div>
       </div>
     </div>
@@ -189,25 +190,30 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 </div>
 
 <!-- THE EVAL -->
-<div class="container">
+<div class="container" id="eval">
   <div class="section">
     <h2 class="section-title">The eval</h2>
-    <p class="section-sub">Live, real-time, ungameable. The same pattern Numinous uses for event forecasting — applied to social media.</p>
+    <p class="section-sub">Real tweets. Real impressions. Real scores. No simulation.</p>
     <div class="eval-card">
       <div class="eval-row">
-        <span class="eval-badge">LIVE DATA</span>
-        <h3>Real tweets, real resolution</h3>
-        <p>X API filtered stream captures tweets the moment they're posted. The harness predicts. Impressions resolve naturally over the timeframe. No sandbox, no historical replay.</p>
+        <span class="eval-badge">NO LEAKAGE</span>
+        <h3>The LLM never sees the answer</h3>
+        <p>PostProphet never shows the LLM likes, retweets, or impressions for the tweet being predicted. It predicts from content, author baseline, timing, and trending topics only. Old tweets and new tweets eval identically — the LLM can't cheat.</p>
+      </div>
+      <div class="eval-row">
+        <span class="eval-badge">REAL TWEETS</span>
+        <h3>Tracked accounts, not keyword search</h3>
+        <p>The harness monitors real X accounts (Bittensor ecosystem by default). Each tweet gets a dynamic target of 1.2x the author's average impressions. Predictions spread from 30-80% — meaningful Brier scores, not all-hits or all-misses.</p>
       </div>
       <div class="eval-row">
         <span class="eval-badge">BRIER SCORE</span>
-        <h3>Probability calibration</h3>
-        <p>Standard forecasting metric. How well does the harness's probability match reality? 100 tweets per batch, rolling window, same scoring as prediction markets.</p>
+        <h3>Standard forecasting metric</h3>
+        <p>How well does the probability match reality? 0 = perfect, 1 = worst, 0.25 = random guessing. Change the harness, rerun on fresh tweets, compare scores. If the Brier goes down, the change improved the harness.</p>
       </div>
       <div class="eval-row">
-        <span class="eval-badge">REGRESSION TESTING</span>
-        <h3>PRs scored against real outcomes</h3>
-        <p>Change the prediction logic, rerun against the same tweet batch. Did accuracy improve? Merge. Did it regress? Revert. Same pattern as SparkDistill and Ninja.</p>
+        <span class="eval-badge">24H RESOLVE</span>
+        <h3>Impressions plateau at 24 hours</h3>
+        <p>Research shows 95% of tweets stop getting new impressions after 24 hours, with a median half-life of 80 minutes (Pfeffer et al., 2023). Predictions resolve at 24h for the full picture.</p>
       </div>
     </div>
   </div>
@@ -216,7 +222,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <!-- CTA -->
 <div class="cta-section">
   <h2>Stop guessing.<br>Start predicting.</h2>
-  <p>The prediction layer for social media agents.</p>
+  <p>Open source. Model-agnostic. MIT licensed.</p>
   <a href="https://github.com/buckZz7/postprophet" class="btn btn-primary">GitHub</a>
 </div>
 
@@ -225,10 +231,10 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
   <div class="inner">
     <div class="brand">
       <div style="font-weight:800;font-size:1.05em;margin-bottom:8px">PostProphet</div>
-      <p>A prediction harness for social media reach. The technology layer that lets agents grade their own content.</p>
+      <p>A prediction harness for social media reach. Open source, model-agnostic, MIT licensed.</p>
     </div>
   </div>
-  <div class="bottom">Prediction harness for social media reach.</div>
+  <div class="bottom">Predict reach before you post.</div>
 </footer>
 
 <script>

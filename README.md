@@ -1,31 +1,24 @@
 # PostProphet
 
-Prediction harness for social media reach.
+Predict reach before you post.
 
-Given who is posting, what they're posting, when they're posting, where they're posting, and a target — PostProphet predicts the probability of hitting that target within a given timeframe. It's the technology layer that lets agents grade their own content before it goes live.
+PostProphet is a prediction harness that forecasts the probability of a tweet hitting a target impression count within a given timeframe. Give it who's posting, what they're saying, when they're posting, and a target — it returns a probability, a point estimate, and reasoning that explains the prediction and what would improve it.
 
-## Quickstart
+## Why
 
-```bash
-git clone https://github.com/buckZz7/postprophet.git
-cd postprophet
-uv venv && source .venv/bin/activate
-uv pip install httpx openai
-cp .env.example .env  # fill in your keys
-python postprophet.py run
-```
+Most marketing tools tell you what happened after you posted. PostProphet tells you what will happen before. Agents can generate a tweet, check the probability, iterate on the content until it clears a threshold, then ship. No more posting blind.
 
 ## How it works
 
 ```
-1. capture  — X API search captures real tweets, gathers context:
+1. capture  — X API fetches tweets from tracked accounts, gathers context:
                 - Author stats (followers, following, tweet count)
                 - Author baseline (avg impressions, avg likes, avg retweets from recent tweets)
                 - Author's top 3 recent tweets (text + impressions)
                 - Trending topics
                 - When it was posted (or will be posted)
-2. predict  — LLM predicts probability of hitting target impressions within timeframe
-3. wait     — timeframe hours pass (default 24h)
+2. predict  — LLM predicts probability + point estimate + reasoning + suggestions
+3. wait     — timeframe hours pass (default 24h, based on impression plateau research)
 4. resolve  — check actual impressions via X API
 5. score    — Brier score measures prediction accuracy
 6. report   — track accuracy over time
@@ -36,10 +29,10 @@ python postprophet.py run
 ### Eval mode (test the harness against real tweets)
 
 ```bash
-python postprophet.py capture          # Capture real tweets and predict
-python postprophet.py resolve          # Resolve pending predictions and score
-python postprophet.py report           # Show score history
-python postprophet.py run              # Capture → resolve → report
+python postprophet.py track            — Capture from tracked accounts (accounts.txt)
+python postprophet.py resolve          — Resolve pending predictions and score
+python postprophet.py report           — Show score history + reasoning
+python postprophet.py capture          — Keyword search capture (alternative)
 ```
 
 ### Product mode (predict for an unpublished tweet)
@@ -61,44 +54,75 @@ The harness fetches the author's recent tweets to build an engagement baseline, 
 | `X_BEARER_TOKEN` | — | X API v2 bearer token |
 | `OPENAI_API_KEY` | — | OpenAI API key |
 | `POSTPROPHET_MODEL` | `gpt-4o-mini` | LLM model |
-| `POSTPROPHET_TIMEFRAME` | `1` | Hours before resolving |
-| `POSTPROPHET_TARGET` | `10000` | Target impressions |
-| `POSTPROPHET_BATCH` | `20` | Tweets per capture batch |
+| `POSTPROPHET_TIMEFRAME` | `24` | Hours before resolving |
+| `POSTPROPHET_TARGET` | `10000` | Target impressions (ignored in track mode — uses 1.2x author baseline) |
+| `POSTPROPHET_BATCH` | `20` | Tweets per keyword capture batch |
 
 ## The eval
 
-Live, real-time, ungameable. The harness predicts on real tweets captured from the X API. Impressions resolve naturally over the timeframe. Brier score measures prediction accuracy. PRs to the harness are scored against the same tweet batch — does accuracy improve?
+PostProphet is evaluated on real tweets from real accounts. The harness predicts the probability of a tweet hitting 1.2x the author's average impressions within 24 hours. Impressions resolve naturally. Brier score measures how calibrated the predictions are.
+
+### What the LLM sees
+
+The LLM never sees engagement metrics for the tweet being predicted. No likes, no retweets, no impressions. It predicts from:
+
+- **Who** — author identity, follower count, engagement baseline from their other tweets
+- **What** — the tweet text
+- **When** — when it was posted and how long ago
+- **Where** — the platform (X for now)
+- **What's trending** — current trending topics
+
+This means the eval is ungameable. The LLM can't look up the answer because it never sees engagement data. Old tweets and new tweets eval identically.
 
 ### Resolve timing
 
-Predictions resolve at 24 hours after the tweet was posted. Research shows that 95% of tweets receive no relevant new impressions after 24 hours, and the median half-life of a tweet is 80 minutes (Pfeffer et al., 2023). The 24-hour window captures essentially all impressions for 95% of tweets.
+Predictions resolve at 24 hours after the tweet was posted. Research shows that 95% of tweets receive no relevant new impressions after 24 hours, and the median half-life of a tweet is 80 minutes (Pfeffer et al., 2023).
 
 > Pfeffer, J.; Matter, D.; Sargsyan, A. (2023). "The Half-Life of a Tweet." *Proceedings of the International AAAI Conference on Web and Social Media*, 17(1).
 
 For faster iteration, the timeframe can be reduced — at 3 hours, roughly 80% of final impressions have accumulated.
 
-### What the harness considers
+### Scoring
 
-- **Author baseline** — not just follower count, but average impressions per tweet. An account with 1k followers that averages 5k impressions is very different from one that averages 200.
-- **Recent top tweets** — the author's 3 best-performing recent tweets (text + impressions) give the harness a sense of what works for this account.
-- **Time of day** — when the tweet was (or will be) posted. A tweet at 3am hits differently than 9am.
-- **Trending topics** — what's hot right now and whether the tweet relates.
-- **Author baseline** — not just follower count, but average impressions per tweet. An account with 1k followers that averages 5k impressions is very different from one that averages 200.
-- **Planned post time** — in product mode, when the tweet will go live.
+**Brier score** — standard forecasting metric. `(probability - actual_outcome)²` averaged across a batch. 0 = perfect, 1 = worst, 0.25 = random guessing. Lower is better.
+
+**Point estimate accuracy** — the LLM also outputs a point estimate (predicted impression count). Scored with `1 - |estimated - actual| / actual`. Useful as a secondary metric.
+
+### Regression testing
+
+Change the prediction logic, rerun against fresh tweets, compare Brier scores. If the score goes down, the change improved the harness. If it goes up, revert. Same principle as any ML benchmark.
 
 ## Architecture
 
 PostProphet is a **harness** — code that controls the flow:
 
-1. **Capture** (code): X API search, context gathering, author baseline computation
-2. **Predict** (agent): LLM reasons from context → probability + reasoning
+1. **Capture** (code): X API fetches tweets from tracked accounts, computes author baselines
+2. **Predict** (agent): LLM reasons from context → probability + point estimate + reasoning
 3. **Store** (code): JSONL prediction records
-4. **Wait** (code): timeframe timer
+4. **Wait** (code): 24h timer
 5. **Resolve** (code): X API impression check
-6. **Score** (code): Brier score calculation
-7. **Report** (code): score history
+6. **Score** (code): Brier score + point estimate accuracy
+7. **Report** (code): score history with reasoning
 
-The agent is one function: `predict(context) → {probability, reasoning}`. Everything else is harness.
+The agent is one function: `predict(context) → {probability, point_estimate, reasoning, suggestions}`. Everything else is harness code. The LLM is model-agnostic — swap models with one env var and compare Brier scores.
+
+## Tracked accounts
+
+PostProphet tracks Bittensor ecosystem accounts by default (see `accounts.txt`). Add or remove handles to control your eval data pool. Each account gets a dynamic target of 1.2x their average impressions — so predictions range from 30-80% instead of all-hits or all-misses.
+
+## Quickstart
+
+```bash
+git clone https://github.com/buckZz7/postprophet.git
+cd postprophet
+uv venv && source .venv/bin/activate
+uv pip install httpx openai
+cp .env.example .env  # fill in your keys
+python postprophet.py track   # capture + predict
+# wait 24h
+python postprophet.py resolve  # score
+python postprophet.py report   # see results
+```
 
 ## License
 
