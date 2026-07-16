@@ -1,5 +1,5 @@
 """
-PostProphet — Prediction engine for social media reach.
+PostProphet — Prediction harness for social media reach.
 
 A harness that captures real tweets, gathers context, asks an LLM to predict
 impression probability, waits for resolution, and scores with Brier score.
@@ -18,7 +18,7 @@ from openai import OpenAI
 X_BEARER_TOKEN = os.environ.get("X_BEARER_TOKEN", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("POSTPROPHET_MODEL", "gpt-4o-mini")
-TIMEFRAME_HOURS = int(os.environ.get("POSTPROPHET_TIMEFRAME", "1"))
+TIMEFRAME_HOURS = int(os.environ.get("POSTPROPHET_TIMEFRAME", "24"))
 TARGET_IMPRESSIONS = int(os.environ.get("POSTPROPHET_TARGET", "10000"))
 BATCH_SIZE = int(os.environ.get("POSTPROPHET_BATCH", "20"))
 
@@ -331,10 +331,10 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
     }
 
 
-# ── Prediction engine ───────────────────────────────────────────────────
+# ── Prediction harness ───────────────────────────────────────────────────
 
 
-PREDICTION_PROMPT = """You are a social media reach forecasting engine.
+PREDICTION_PROMPT = """You are a social media reach forecasting harness.
 
 Given a tweet and its context, predict the probability (0.0 to 1.0) that this tweet will reach {target} impressions within {timeframe} hours of being posted.
 
@@ -345,12 +345,14 @@ Consider:
 - What's currently trending and whether the tweet relates
 - Time of day the tweet was posted (or will be posted) and whether that's a high-engagement window
 - Whether the author's audience is active at that time
+- Time elapsed since posting (older tweets have less room to grow)
 
 {llm_only_note}
 
 Return JSON:
 {{
   "probability": <float 0.0-1.0>,
+  "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
   "reasoning": "<2-3 sentences explaining the prediction, referencing specific data points>",
   "suggestions": "<1 sentence on what would improve the prediction>"
 }}
@@ -446,7 +448,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     resp = client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=[
-            {"role": "system", "content": "You are a social media reach prediction engine. You predict impression probability from content, author baseline, and timing only. You never see engagement metrics for the tweet being predicted. Output only valid JSON."},
+            {"role": "system", "content": "You are a social media reach prediction harness. You predict impression probability from content, author baseline, and timing only. You never see engagement metrics for the tweet being predicted. Output only valid JSON."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,
@@ -703,6 +705,7 @@ def report_phase():
             baseline = p["context"].get("author_baseline", {})
             avg_imp = baseline.get("avg_impressions", 0)
             prob = p["prediction"].get("probability", 0)
+            point = p["prediction"].get("point_estimate", "—")
             actual = p.get("actual_impressions", 0)
             target = p.get("target", 0)
             hit = actual >= target
@@ -724,7 +727,7 @@ def report_phase():
 
             print(f"  @{username} ({followers:,} followers, avg {avg_imp:.0f} imp/tweet)")
             print(f"  Tweet: {tweet_text}...")
-            print(f"  Target: {target:,} (1.2x baseline) | Predicted: {prob:.0%} | Actual: {actual:,} | {'✅ HIT' if hit else '❌ MISS'}")
+            print(f"  Target: {target:,} (1.2x baseline) | Predicted: {prob:.0%} | Estimate: {point:,} | Actual: {actual:,} | {'✅ HIT' if hit else '❌ MISS'}")
             if elapsed:
                 print(f"  Tweet age at prediction: {elapsed}")
             print(f"  Reasoning: {reasoning}")
@@ -853,7 +856,7 @@ def main():
 
     if len(sys.argv) < 2:
         print("""
-PostProphet — Prediction engine for social media reach
+PostProphet — Prediction harness for social media reach
 
 Usage:
   python postprophet.py capture          — Capture real tweets via keyword search and predict

@@ -1,6 +1,6 @@
 # PostProphet
 
-Prediction engine for social media reach.
+Prediction harness for social media reach.
 
 Given who is posting, what they're posting, when they're posting, where they're posting, and a target — PostProphet predicts the probability of hitting that target within a given timeframe. It's the technology layer that lets agents grade their own content before it goes live.
 
@@ -34,7 +34,7 @@ python postprophet.py run
 
 ## Usage
 
-### Eval mode (test the engine against real tweets)
+### Eval mode (test the harness against real tweets)
 
 ```bash
 python postprophet.py capture          # Capture real tweets and predict
@@ -53,7 +53,7 @@ python postprophet.py predict "your tweet text" \
   --post-time "2026-07-15T09:00:00Z"
 ```
 
-The engine fetches the author's recent tweets to build an engagement baseline, gets trending topics, and predicts the probability of hitting your target within the timeframe.
+The harness fetches the author's recent tweets to build an engagement baseline, gets trending topics, and predicts the probability of hitting your target within the timeframe.
 
 ## Environment
 
@@ -68,12 +68,20 @@ The engine fetches the author's recent tweets to build an engagement baseline, g
 
 ## The eval
 
-Live, real-time, ungameable. The engine predicts on real tweets captured from the X API. Impressions resolve naturally over the timeframe. Brier score measures prediction accuracy. PRs to the engine are scored against the same tweet batch — does accuracy improve?
+Live, real-time, ungameable. The harness predicts on real tweets captured from the X API. Impressions resolve naturally over the timeframe. Brier score measures prediction accuracy. PRs to the harness are scored against the same tweet batch — does accuracy improve?
 
-### What the engine considers
+### Resolve timing
+
+Predictions resolve at 24 hours after the tweet was posted. Research shows that 95% of tweets receive no relevant new impressions after 24 hours, and the median half-life of a tweet is 80 minutes (Pfeffer et al., 2023). The 24-hour window captures essentially all impressions for 95% of tweets.
+
+> Pfeffer, J.; Matter, D.; Sargsyan, A. (2023). "The Half-Life of a Tweet." *Proceedings of the International AAAI Conference on Web and Social Media*, 17(1).
+
+For faster iteration, the timeframe can be reduced — at 3 hours, roughly 80% of final impressions have accumulated.
+
+### What the harness considers
 
 - **Author baseline** — not just follower count, but average impressions per tweet. An account with 1k followers that averages 5k impressions is very different from one that averages 200.
-- **Recent top tweets** — the author's 3 best-performing recent tweets (text + impressions) give the engine a sense of what works for this account.
+- **Recent top tweets** — the author's 3 best-performing recent tweets (text + impressions) give the harness a sense of what works for this account.
 - **Time of day** — when the tweet was (or will be) posted. A tweet at 3am hits differently than 9am.
 - **Trending topics** — what's hot right now and whether the tweet relates.
 - **Early engagement** — in eval mode, likes/retweets/replies at capture time.
