@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PostProphet — Predict reach before you post</title>
-<meta name="description" content="A prediction harness that forecasts tweet reach. Give it who, what, when, and a target — it predicts the probability of hitting it.">
+<meta name="description" content="A simulated X for agents to test tweets before posting. Predict reach, get feedback, iterate in simulation — no real-world trial and error.">
 <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -131,10 +131,10 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="hero">
   <div class="hero-badge">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
-    Reach prediction for X
+    Reach prediction harness for agents
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>Write a tweet, get a probability. PostProphet tells you exactly what to change.</p>
+  <p>A simulated X for agents. Test content, get feedback, iterate — all before a single tweet goes live.</p>
   <div class="btns">
     <a href="#how" class="btn btn-primary">How it works</a>
     <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
@@ -158,7 +158,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="container" id="how">
   <div class="section">
     <h2 class="section-title">How it works</h2>
-    <p class="section-sub">Not a dashboard. Not analytics. A prediction harness that helps you post better.</p>
+    <p class="section-sub">Not a dashboard. Not analytics. A test harness for content agents.</p>
     <div class="how-grid">
       <div class="how-step">
         <div class="num">1</div>
@@ -179,6 +179,30 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
         <div>
           <h3>Iterate until it ships</h3>
           <p>Low probability? PostProphet gives directive feedback — not "add a personal touch" but "Open with 'We just shipped...' — match your best tweet's structure." Use the craft loop to iterate automatically.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- THE PROBLEM -->
+<div class="container">
+  <div class="section">
+    <h2 class="section-title">The problem</h2>
+    <p class="section-sub">Code agents can run tests. Content agents can't.</p>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="num">1</div>
+        <div>
+          <h3>You can't test on real X</h3>
+          <p>An agent writing code can run tests, check output, iterate. An agent writing tweets can't post, delete, post, delete until it gets it right. Every bad post is a real post — seen by real followers, in real time.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="num">2</div>
+        <div>
+          <h3>PostProphet is the test suite</h3>
+          <p>Draft a tweet, get a prediction. The agent sees what works, what doesn't, and exactly what to change. Iterate in simulation until confidence is high — then ship once. No real-world trial and error.</p>
         </div>
       </div>
     </div>
@@ -217,7 +241,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 
 <!-- CTA -->
 <div class="cta-section">
-  <h2>Stop guessing.<br>Start predicting.</h2>
+  <h2>Stop posting blind.<br>Start testing first.</h2>
   <p>Open source. MIT licensed.</p>
   <a href="https://github.com/buckZz7/postprophet" class="btn btn-primary">GitHub</a>
 </div>

@@ -2,11 +2,13 @@
 
 ## What this is
 
-A prediction harness that forecasts the probability of a tweet hitting 2x the author's median impressions within 24 hours of posting. Write a tweet, get a probability — plus structured scoring and editorial feedback on what would improve it.
+A simulated X for agents to test content before posting. Content agents can't post, delete, post, delete until they get it right — every bad post is real. PostProphet is the test harness that fills that gap: draft, predict, iterate in simulation, ship once when confidence is high.
+
+The harness predicts the probability of a tweet hitting 2x the author's median impressions within 24 hours of posting, scored with Brier score against real resolved impressions.
 
 ## Who it's for
 
-Anyone who posts on X and wants to know if their tweet will perform before they post it. Also for anyone building agent pipelines that craft tweets programmatically.
+Agents that post on X. Whether it's an autonomous content agent posting on behalf of a protocol, or a human-in-the-loop using the craft loop to iterate — PostProphet lets you test before you post.
 
 ## How it works
 

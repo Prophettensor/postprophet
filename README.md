@@ -1,8 +1,10 @@
 # PostProphet
 
-Predict reach before you post.
+A simulated X for agents to test content before posting.
 
-PostProphet is a prediction harness that forecasts the probability of a tweet hitting 2x the author's median impressions within 24 hours of posting. Write a tweet, get a probability — plus structured scoring and editorial feedback on what would improve it.
+PostProphet is a prediction harness that lets content agents test tweets in simulation — draft, get a probability, iterate on feedback, and ship once when confidence is high. No real-world trial and error. Every bad tweet you don't post is a win.
+
+The harness predicts the probability of a tweet hitting 2x the author's median impressions within 24 hours of posting, scored with Brier score against real resolved impressions.
 
 ## How it works
 
