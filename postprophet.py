@@ -128,7 +128,8 @@ def load_tracked_accounts():
 
 
 def capture_from_accounts():
-    """Capture latest tweets from tracked accounts and predict with dynamic targets."""
+    """Capture latest tweets from tracked accounts and predict with dynamic targets.
+    Two passes: first fetch all author data + compute ecosystem baseline, then predict."""
     print("\n" + "=" * 60)
     print("  PostProphet — Account Tracking Capture")
     print("=" * 60 + "\n")
@@ -146,166 +147,84 @@ def capture_from_accounts():
     except Exception:
         trending = []
 
-    predictions = []
-    for i, handle in enumerate(handles, 1):
-        print(f"  [{i}/{len(handles)}] @{handle}...")
+    # ── Pass 1: Fetch all author data ─────────────────────────────
+    print("  Phase 1: Fetching author data...\n")
+    all_author_data = []
+    author_contexts = []  # (handle, latest_tweet, context_dict, dynamic_target)
+    existing = load_predictions()
 
-        # Check cache first — skip X API calls if fresh
+    for i, handle in enumerate(handles, 1):
+        print(f"  [{i}/{len(handles)}] @{handle}...", end="")
+
+        # Check cache first
         cached = get_cached_author(handle)
         if cached:
-            print(f"    (cached)")
             followers = cached["followers"]
             if followers == 0:
-                print(f"    ⚠️  0 followers — skipping")
+                print(" ⚠️ 0 followers — skip")
                 continue
-
             baseline = cached["baseline"]
             median_imp = baseline.get("median_impressions", 0)
             if median_imp == 0:
-                print(f"    ⚠️  No baseline data — skipping")
+                print(" ⚠️ no baseline — skip")
                 continue
-
-            dynamic_target = int(median_imp * 2)
-            print(f"    {followers:,} followers | median {median_imp:.0f} imp/tweet | target (2x): {dynamic_target:,}")
-
             user_id = cached["user_id"]
-
-            # Still need to fetch latest tweet (not cached — changes every run)
-            tweets = get_author_latest_tweet(user_id)
-            if not tweets:
-                print(f"    ⚠️  No recent tweets — skipping")
-                continue
-
-            latest = pick_fresh_tweet(tweets, max_age_hours=12, author_id=user_id)
-            if not latest:
-                print(f"    ⏭️  No tweets under 12h — skipping")
-                continue
-
-            existing = load_predictions()
-            already_predicted = any(p["tweet_id"] == latest["id"] for p in existing)
-            if already_predicted:
-                print(f"    ⏭️  Already predicted this tweet — skipping")
-                continue
-
-            # Use cached best/worst samples
             recent_samples = cached["recent_samples"]
-
-            tweet_metrics = latest.get("public_metrics", {})
-            context = {
-                "tweet_id": latest["id"],
-                "text": latest.get("text", ""),
-                "created_at": latest.get("created_at", ""),
-                "planned_post_time": latest.get("created_at", ""),
-                "platform": "x",
-                "author": {
-                    "username": handle,
-                    "followers": followers,
-                    "following": cached["following"],
-                    "tweet_count": cached["tweet_count"],
-                },
-                "author_baseline": baseline,
-                "author_recent_top_tweets": recent_samples,
-                "tweet_metrics_at_capture": {
-                    "likes": tweet_metrics.get("like_count", 0),
-                    "retweets": tweet_metrics.get("retweet_count", 0),
-                    "replies": tweet_metrics.get("reply_count", 0),
-                    "quotes": tweet_metrics.get("quote_count", 0),
-                },
-                "trending_topics": trending,
-                "has_x_data": True,
-            }
-
-            print(f"    Tweet: {context['text'][:80]}...")
-
-            try:
-                prediction = predict(context, target=dynamic_target, timeframe=TIMEFRAME_HOURS)
-            except Exception as e:
-                print(f"    ❌ Prediction error: {e}")
+            all_tweet_samples = []
+            # For ecosystem, use cached recent_samples (best/worst only)
+            recent_for_eco = []
+        else:
+            # Cold fetch
+            user = get_user_by_username(handle)
+            if not user:
+                print(" ❌ not found")
                 continue
+            user_id = user.get("id", "")
+            author_metrics = user.get("public_metrics", {})
+            followers = author_metrics.get("followers_count", 0)
+            if followers == 0:
+                print(" ⚠️ 0 followers — skip")
+                continue
+            try:
+                recent = get_author_recent_tweets(user_id)
+            except Exception:
+                recent = []
+            baseline = compute_author_baseline(recent)
+            median_imp = baseline.get("median_impressions", 0)
+            if median_imp == 0:
+                print(" ⚠️ no baseline — skip")
+                continue
+            all_samples, hit_sample, miss_sample = get_reference_tweets(recent, baseline)
+            recent_samples = [s for s in [hit_sample, miss_sample] if s]
+            all_tweet_samples = all_samples
+            recent_for_eco = recent
+            cache_author(handle, user, baseline, recent_samples)
 
-            record = {
-                "tweet_id": context["tweet_id"],
-                "predicted_at": datetime.now(timezone.utc).isoformat(),
-                "timeframe_hours": TIMEFRAME_HOURS,
-                "target": dynamic_target,
-                "context": context,
-                "prediction": prediction,
-                "resolve_after": (
-                    datetime.fromisoformat(context["created_at"].replace("Z", "+00:00")) + timedelta(hours=TIMEFRAME_HOURS)
-                ).isoformat(),
-                "resolved": False,
-                "actual_impressions": None,
-            }
-
-            save_prediction(record)
-            predictions.append(record)
-
-            prob = prediction.get("probability", 0.5)
-            reasoning = prediction.get("reasoning", "")[:100]
-            print(f"    → {prob:.0%} | target {dynamic_target:,} | {reasoning}")
-            print()
+        # Fetch latest tweet
+        tweets_list = get_author_latest_tweet(user_id)
+        if not tweets_list:
+            print(" ⚠️ no tweets")
             continue
-
-        # ── Cold path: fetch from X API ──────────────────────────────
-
-        # Look up user
-        user = get_user_by_username(handle)
-        if not user:
-            print(f"    ❌ User not found")
-            continue
-
-        user_id = user.get("id", "")
-        author_metrics = user.get("public_metrics", {})
-        followers = author_metrics.get("followers_count", 0)
-
-        if followers == 0:
-            print(f"    ⚠️  0 followers — skipping")
-            continue
-
-        # Fetch recent tweets for baseline
-        try:
-            recent = get_author_recent_tweets(user_id)
-        except Exception:
-            recent = []
-
-        baseline = compute_author_baseline(recent)
-        median_imp = baseline.get("median_impressions", 0)
-
-        if median_imp == 0:
-            print(f"    ⚠️  No baseline data — skipping")
-            continue
-
-        # Dynamic target: 2x median (will this tweet be a standout?)
-        dynamic_target = int(median_imp * 2)
-        print(f"    {followers:,} followers | median {median_imp:.0f} imp/tweet | target (2x): {dynamic_target:,}")
-
-        # Get their latest tweet
-        tweets = get_author_latest_tweet(user_id)
-        if not tweets:
-            print(f"    ⚠️  No recent tweets — skipping")
-            continue
-
-        latest = pick_fresh_tweet(tweets, max_age_hours=12, author_id=user_id)
+        latest = pick_fresh_tweet(tweets_list, max_age_hours=12, author_id=user_id)
         if not latest:
-            print(f"    ⏭️  No tweets under 12h — skipping")
+            print(" ⏭️ none fresh")
+            continue
+        if any(p["tweet_id"] == latest["id"] for p in existing):
+            print(" ⏭️ already predicted")
             continue
 
-        # Check if we already predicted this tweet
-        existing = load_predictions()
-        already_predicted = any(p["tweet_id"] == latest["id"] for p in existing)
-        if already_predicted:
-            print(f"    ⏭️  Already predicted this tweet — skipping")
-            continue
+        dynamic_target = int(median_imp * 2)
+        print(f" ✓ median {median_imp:.0f} | target {dynamic_target:,}")
 
-        # Build reference samples: tweet closest to p75 (hit) and p25 (miss)
-        all_samples, hit_sample, miss_sample = get_reference_tweets(recent, baseline)
-        recent_samples = [s for s in [hit_sample, miss_sample] if s]
-        all_tweet_samples = all_samples
+        # Collect for ecosystem baseline
+        all_author_data.append({
+            "handle": handle,
+            "followers": followers,
+            "median_impressions": median_imp,
+            "recent_tweets": recent_for_eco if recent_for_eco else [],
+        })
 
-        # Cache this author's data for future runs
-        cache_author(handle, user, baseline, recent_samples)
-
-        # Build context
+        # Store context for pass 2
         tweet_metrics = latest.get("public_metrics", {})
         context = {
             "tweet_id": latest["id"],
@@ -316,8 +235,8 @@ def capture_from_accounts():
             "author": {
                 "username": handle,
                 "followers": followers,
-                "following": author_metrics.get("following_count", 0),
-                "tweet_count": author_metrics.get("tweet_count", 0),
+                "following": cached["following"] if cached else author_metrics.get("following_count", 0),
+                "tweet_count": cached["tweet_count"] if cached else author_metrics.get("tweet_count", 0),
             },
             "author_baseline": baseline,
             "author_recent_top_tweets": recent_samples,
@@ -331,10 +250,27 @@ def capture_from_accounts():
             "trending_topics": trending,
             "has_x_data": True,
         }
+        author_contexts.append((handle, latest, context, dynamic_target))
 
-        print(f"    Tweet: {context['text'][:80]}...")
+    # ── Compute ecosystem baseline ────────────────────────────────
+    print(f"\n  Phase 2: Computing ecosystem baseline from {len(all_author_data)} accounts...")
+    ecosystem = compute_ecosystem_baseline(all_author_data)
+    if ecosystem:
+        print(f"    Ecosystem median: {ecosystem['median_impressions']:.0f} imp/tweet")
+        print(f"    Median efficiency: {ecosystem['median_imp_per_1k_followers']:.1f} imp per 1K followers")
+        if ecosystem.get("best_tweets_normalized"):
+            best = ecosystem["best_tweets_normalized"][0]
+            print(f"    Best normalized tweet: @{best['handle']} ({best['imp_per_1k']:.1f} imp/1K followers)")
 
-        # Predict with dynamic target
+    # ── Pass 2: Predict ───────────────────────────────────────────
+    print(f"\n  Phase 3: Predicting {len(author_contexts)} tweets...\n")
+    predictions = []
+    for handle, latest, context, dynamic_target in author_contexts:
+        # Add ecosystem context
+        context["ecosystem"] = ecosystem
+
+        print(f"  @{handle}: {context['text'][:60]}...")
+
         try:
             prediction = predict(context, target=dynamic_target, timeframe=TIMEFRAME_HOURS)
         except Exception as e:
@@ -428,6 +364,99 @@ def compute_author_baseline(recent_tweets: list) -> dict:
         "median_likes": percentile(likes, 0.50),
         "median_retweets": percentile(retweets, 0.50),
         "sample_size": n,
+    }
+
+
+# ── Ecosystem baseline ─────────────────────────────────────────────────
+
+
+def compute_ecosystem_baseline(all_author_data: list) -> dict:
+    """Compute ecosystem-wide baseline from all tracked accounts.
+    
+    Normalizes impressions by follower count so we compare tweet quality,
+    not account size. A tweet from a 100-follower account that gets 1K
+    impressions is performing better than a 100K-follower account getting 5K.
+    
+    all_author_data: list of {handle, followers, median_impressions, recent_tweets}
+    """
+    if not all_author_data:
+        return {}
+    
+    # Impressions per 1K followers — normalizes for account size
+    imp_per_1k = []
+    median_imps = []
+    best_tweets = []
+    worst_tweets = []
+    
+    for author in all_author_data:
+        followers = author.get("followers", 0)
+        median_imp = author.get("median_impressions", 0)
+        if followers > 0 and median_imp > 0:
+            imp_per_1k.append(median_imp / (followers / 1000))
+            median_imps.append(median_imp)
+        
+        # Collect best/worst tweets (already sorted)
+        recent = author.get("recent_tweets", [])
+        if recent:
+            sorted_tweets = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+            best_tweets.append({
+                "text": sorted_tweets[0].get("text", "")[:120],
+                "impressions": sorted_tweets[0].get("public_metrics", {}).get("impression_count", 0),
+                "followers": followers,
+                "handle": author.get("handle", ""),
+                "imp_per_1k": (sorted_tweets[0].get("public_metrics", {}).get("impression_count", 0) / (followers / 1000)) if followers > 0 else 0,
+                "posted_at": sorted_tweets[0].get("created_at", ""),
+            })
+            worst_tweets.append({
+                "text": sorted_tweets[-1].get("text", "")[:120],
+                "impressions": sorted_tweets[-1].get("public_metrics", {}).get("impression_count", 0),
+                "followers": followers,
+                "handle": author.get("handle", ""),
+                "imp_per_1k": (sorted_tweets[-1].get("public_metrics", {}).get("impression_count", 0) / (followers / 1000)) if followers > 0 else 0,
+                "posted_at": sorted_tweets[-1].get("created_at", ""),
+            })
+    
+    if not imp_per_1k:
+        return {}
+    
+    imp_per_1k.sort()
+    median_imps.sort()
+    
+    def pct(data, p):
+        n = len(data)
+        if n == 1:
+            return data[0]
+        k = (n - 1) * p
+        f = int(k)
+        c = min(f + 1, n - 1)
+        return data[f] + (data[c] - data[f]) * (k - f)
+    
+    # Sort best tweets by normalized performance (imp_per_1k), not raw impressions
+    best_tweets.sort(key=lambda t: t["imp_per_1k"], reverse=True)
+    
+    # Collect recent tweets across ecosystem (for "what's being talked about")
+    recent_ecosystem = []
+    for author in all_author_data:
+        for t in author.get("recent_tweets", []):
+            recent_ecosystem.append({
+                "text": t.get("text", "")[:80],
+                "handle": author.get("handle", ""),
+                "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                "created_at": t.get("created_at", ""),
+            })
+    
+    # Sort by recency — take most recent 15 for "industry pulse"
+    recent_ecosystem.sort(key=lambda t: t["created_at"], reverse=True)
+    recent_pulse = recent_ecosystem[:15]
+    
+    return {
+        "account_count": len(all_author_data),
+        "median_imp_per_1k_followers": pct(imp_per_1k, 0.50),
+        "p75_imp_per_1k": pct(imp_per_1k, 0.75),
+        "median_impressions": pct(median_imps, 0.50),
+        "best_tweets_normalized": best_tweets[:5],
+        "worst_tweets_normalized": worst_tweets[:3],
+        "recent_pulse": recent_pulse,
     }
 
 
@@ -574,10 +603,10 @@ Given a tweet and its context, predict the probability (0.0 to 1.0) that this tw
 
 The target is 2x the author's median impressions — meaning it needs to perform twice as well as their typical tweet. You're predicting whether this is a standout tweet for this author.
 
-STEP 1 — Score the tweet vs their full tweet history on 3 dimensions (0-10 each):
-- hook_strength: Does it open with something that stops the scroll? Look at their top-performing tweets — what do their openings have in common? Does this tweet match that? A bold claim, surprising data, or personal announcement = high. Vague statements or "the future is here" = low.
-- specificity: Does it say something concrete? Look at their top tweets — are they specific (named products, numbers, events) or general? Score this tweet the same way. General statements about "innovation" or "decentralization" = low.
-- emotional_trigger: Does it make the reader feel something? Look at their top tweets vs bottom tweets — what's the emotional difference? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low.
+STEP 1 — Score the tweet vs their full tweet history AND ecosystem on 3 dimensions (0-10 each):
+- hook_strength: Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets — what do their openings have in common? Does this tweet match that? A bold claim, surprising data, or personal announcement = high. Vague statements or "the future is here" = low.
+- specificity: Does it say something concrete? Named products, numbers, events = high. General statements about "innovation" or "decentralization" = low. Compare to both their best tweets and the ecosystem's best.
+- emotional_trigger: Does it make the reader feel something? Look at their top tweets vs bottom tweets AND the ecosystem best/worst — what's the emotional difference? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)
 
 A tweet scoring below 6 on ANY dimension is unlikely to hit 2x median. Be honest — most tweets are mediocre.
 
@@ -612,6 +641,8 @@ Author: @{username} ({followers} followers, {following} following)
 Author baseline: median {median_impressions:.0f} impressions/tweet, median {median_likes:.0f} likes/tweet, median {median_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
 Author's recent tweets ranked by impressions (best to worst):
 {all_tweets}
+Ecosystem context (across {eco_accounts} Bittensor subnet accounts):
+{ecosystem}
 Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
@@ -691,6 +722,26 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
             else:
                 all_tweets_str = "  (no data)"
 
+    # Format ecosystem context
+    eco = context.get("ecosystem", {})
+    if eco:
+        eco_lines = [
+            f"  Median efficiency: {eco.get('median_imp_per_1k_followers', 0):.1f} impressions per 1K followers",
+            f"  Top quartile efficiency: {eco.get('p75_imp_per_1k', 0):.1f} imp per 1K followers",
+            f"  Ecosystem median: {eco.get('median_impressions', 0):.0f} impressions/tweet",
+            f"  Best tweets (normalized by follower count — quality, not just reach):",
+        ]
+        for bt in eco.get("best_tweets_normalized", [])[:3]:
+            eco_lines.append(f"    @{bt['handle']} ({bt['followers']:,} followers, {bt['imp_per_1k']:.1f} imp/1K): \"{bt['text']}\"")
+        eco_lines.append(f"  Recent industry pulse (what subnets are tweeting about now):")
+        for rp in eco.get("recent_pulse", [])[:5]:
+            eco_lines.append(f"    @{rp['handle']}: \"{rp['text']}\"")
+        ecosystem_str = "\n".join(eco_lines)
+        eco_accounts = eco.get("account_count", 0)
+    else:
+        ecosystem_str = "  (no ecosystem data)"
+        eco_accounts = 0
+
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
         timeframe=tf,
@@ -703,6 +754,8 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         median_retweets=median_retweets,
         baseline_sample=baseline_sample,
         all_tweets=all_tweets_str,
+        eco_accounts=eco_accounts,
+        ecosystem=ecosystem_str,
         posted_at=posted_at_str,
         elapsed=elapsed_str,
         trending=", ".join(context.get("trending_topics", [])) or "none available",
