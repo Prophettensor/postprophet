@@ -538,24 +538,18 @@ def compute_ecosystem_baseline(all_author_data: list) -> dict:
     
     # Collect recent tweets across ecosystem (for "what's being talked about")
     # Include engagement metrics + age — these are OTHER accounts' tweets, not
-    # the prediction target, so engagement data is fair game
-    now = datetime.now(timezone.utc)
+    # the prediction target, so engagement data is fair game.
+    # Age is calculated relative to the prediction tweet's post time, not now,
+    # and tweets posted AFTER the prediction are excluded (no future leakage).
     recent_ecosystem = []
     for author in all_author_data:
         for t in author.get("recent_tweets", []):
             metrics = t.get("public_metrics", {})
             created = t.get("created_at", "")
-            age_str = "unknown"
+            created_dt = None
             if created:
                 try:
-                    posted = datetime.fromisoformat(created.replace("Z", "+00:00"))
-                    age_hrs = (now - posted).total_seconds() / 3600
-                    if age_hrs < 1:
-                        age_str = f"{int(age_hrs * 60)}m ago"
-                    elif age_hrs < 24:
-                        age_str = f"{age_hrs:.0f}h ago"
-                    else:
-                        age_str = f"{age_hrs/24:.0f}d ago"
+                    created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
                 except Exception:
                     pass
             recent_ecosystem.append({
@@ -565,13 +559,15 @@ def compute_ecosystem_baseline(all_author_data: list) -> dict:
                 "replies": metrics.get("reply_count", 0),
                 "bookmarks": metrics.get("bookmark_count", 0),
                 "quotes": metrics.get("quote_count", 0),
-                "age": age_str,
                 "created_at": created,
+                "_created_dt": created_dt,
             })
     
     # Sort by recency — take most recent 15 for "industry pulse"
     recent_ecosystem.sort(key=lambda t: t["created_at"], reverse=True)
     recent_pulse = recent_ecosystem[:15]
+    # Store raw for per-prediction filtering (created_dt needed for age calc)
+    all_recent_raw = recent_ecosystem
     
     return {
         "account_count": len(all_author_data),
@@ -581,6 +577,7 @@ def compute_ecosystem_baseline(all_author_data: list) -> dict:
         "best_tweets_normalized": best_tweets[:5],
         "worst_tweets_normalized": worst_tweets[:3],
         "recent_pulse": recent_pulse,
+        "all_recent_raw": all_recent_raw,
     }
 
 
@@ -867,8 +864,41 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         ]
         for bt in eco.get("best_tweets_normalized", [])[:3]:
             eco_lines.append(f"    @{bt['handle']} ({bt['followers']:,} followers, {bt['imp_per_1k']:.1f} imp/1K): \"{bt['text']}\"")
-        eco_lines.append(f"  Recent industry pulse (what subnets are tweeting about, with engagement + age):")
-        for rp in eco.get("recent_pulse", [])[:5]:
+        # Filter ecosystem tweets to only those posted BEFORE the prediction tweet
+        # (no future leakage — if we're predicting a tweet from 2pm, don't show
+        # ecosystem tweets from 3pm onward)
+        pred_posted = None
+        posted_at_str = context.get("planned_post_time", context.get("created_at", ""))
+        if posted_at_str:
+            try:
+                pred_posted = datetime.fromisoformat(posted_at_str.replace("Z", "+00:00"))
+            except Exception:
+                pass
+        
+        eco_lines.append(f"  Recent industry pulse (what subnets were tweeting about, with engagement + age relative to prediction):")
+        # Use all_recent_raw and filter by post time
+        all_raw = eco.get("all_recent_raw", eco.get("recent_pulse", []))
+        filtered_pulse = []
+        for rp in all_raw:
+            if pred_posted and rp.get("_created_dt"):
+                # Skip tweets posted after the prediction tweet
+                if rp["_created_dt"] > pred_posted:
+                    continue
+                # Calculate age relative to prediction tweet's post time
+                age_hrs = (pred_posted - rp["_created_dt"]).total_seconds() / 3600
+                if age_hrs < 1:
+                    age_str = f"{int(age_hrs * 60)}m before"
+                elif age_hrs < 24:
+                    age_str = f"{age_hrs:.0f}h before"
+                else:
+                    age_str = f"{age_hrs/24:.0f}d before"
+            else:
+                age_str = "unknown age"
+            filtered_pulse.append((rp, age_str))
+        
+        # Sort by recency (most recent first among valid timestamps) and take top 5
+        filtered_pulse.sort(key=lambda x: x[0].get("created_at", ""), reverse=True)
+        for rp, age_str in filtered_pulse[:5]:
             eng = []
             if rp.get("replies", 0) > 0:
                 eng.append(f"{rp['replies']} replies")
@@ -877,7 +907,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
             if rp.get("quotes", 0) > 0:
                 eng.append(f"{rp['quotes']} quotes")
             eng_str = ", ".join(eng) if eng else "no engagement"
-            eco_lines.append(f"    @{rp['handle']} ({rp['age']}, {eng_str}): \"{rp['text']}\"")
+            eco_lines.append(f"    @{rp['handle']} ({age_str}, {eng_str}): \"{rp['text']}\"")
         ecosystem_str = "\n".join(eco_lines)
         eco_accounts = eco.get("account_count", 0)
     else:
