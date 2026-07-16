@@ -633,7 +633,7 @@ Return JSON:
   "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
   "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
   "pattern_analysis": "<1-2 sentences. What specific pattern does their best tweet use that this tweet should match?>",
-  "suggestions": "<1-2 sentences. CONCRETE editorial feedback.>"
+  "suggestions": "<Rewrite directive. Don't say 'add a personal touch' or 'be more engaging.' Instead, give the EXACT opening 5-10 words the writer should use, modeled on their best tweet. Example: 'Open with: We just shipped [specific thing]. Their best tweet started with Proud to be part of... — match that first-person announcement structure. Drop the second sentence entirely.'>"
 }}
 
 Tweet: {text}
