@@ -21,7 +21,7 @@ PostProphet is a prediction harness that forecasts the probability of a tweet hi
 python postprophet.py predict "your tweet text" --author username
 ```
 
-PostProphet fetches the author's real engagement history, builds an ecosystem baseline from tracked accounts, analyzes any attached media, and predicts the probability of hitting 2x their median impressions in 24h.
+PostProphet fetches the author's real engagement history and predicts the probability of hitting 2x their median impressions in 24h. If the tweet has attached media, it analyzes it via vision. If you've set up ecosystem tracking (see below), it adds cross-account context.
 
 ### Iterative improvement (craft loop)
 
@@ -42,18 +42,13 @@ python postprophet.py report           — Show score history + detailed predict
 
 ## Scoring
 
-Each tweet is scored on multiple dimensions (0-10), grounded in the X algorithm's engagement weights. Scores cover content quality (hook, specificity, emotional trigger) and algorithmic signals (reply inducement, bookmark worthiness, structure, clarity, link penalty risk). The dimensions evolve as the harness improves.
+Each tweet is scored on multiple dimensions (0-10), grounded in the X algorithm's engagement weights. Scores cover content quality and algorithmic signals. The dimensions evolve as the harness improves.
 
-## Ecosystem context
+## Ecosystem context (optional)
 
-PostProphet uses all accounts in `accounts.txt` as an ecosystem baseline. Tweets are normalized by follower count (impressions per 1K followers) so craft quality is compared, not account size. The model sees:
+If you add accounts to `accounts.txt` and run `track` once, PostProphet caches their engagement data. Future `predict` calls then include ecosystem context — cross-account baselines normalized by follower count (impressions per 1K followers) so craft quality is compared, not account size. Zero extra API cost (uses cache only).
 
-- The author's 10 recent tweets ranked by impressions
-- Best/worst tweets across the ecosystem (normalized)
-- Recent industry pulse (what subnets are tweeting about, with engagement + age)
-- Media analysis (image type, quality, relevance via gpt-4o-mini vision)
-
-Ecosystem context works in both `track` and `predict` mode (from cache, zero extra API cost).
+Without ecosystem setup, `predict` works fine — it just uses the author's own history without cross-account comparison.
 
 ## Data integrity
 
@@ -95,9 +90,15 @@ cd postprophet
 uv venv && source .venv/bin/activate
 uv pip install httpx openai
 cp .env.example .env  # fill in your keys
-echo "your_handle" >> accounts.txt  # add accounts for ecosystem context
-python postprophet.py track  # fetch + cache author data
 python postprophet.py predict "your tweet" --author your_handle
+```
+
+### Optional: ecosystem context
+
+```bash
+echo "competitor_handle" >> accounts.txt  # add accounts for ecosystem tracking
+python postprophet.py track  # fetch + cache author data (one-time, refreshes every 6h)
+python postprophet.py predict "your tweet" --author your_handle  # now includes ecosystem context
 ```
 
 ## License
