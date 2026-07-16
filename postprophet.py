@@ -162,6 +162,8 @@ def capture_from_accounts():
     all_author_data = []
     author_contexts = []  # (handle, latest_tweet, context_dict, dynamic_target)
     existing = load_predictions()
+    tracked_author_ids = set()  # author IDs from our accounts.txt — used to filter replies/quotes
+    author_id_to_handle = {}  # map for displaying reply/quote authors
 
     for i, handle in enumerate(handles, 1):
         print(f"  [{i}/{len(handles)}] @{handle}...", end="")
@@ -210,6 +212,10 @@ def capture_from_accounts():
             recent_for_eco = recent
             cache_author(handle, user, baseline, recent_samples)
 
+        # Track this author ID for reply/quote filtering
+        tracked_author_ids.add(user_id)
+        author_id_to_handle[user_id] = handle
+
         # Fetch latest tweet
         tweets_list = get_author_latest_tweet(user_id)
         if not tweets_list:
@@ -227,11 +233,15 @@ def capture_from_accounts():
         print(f" ✓ median {median_imp:.0f} | target {dynamic_target:,}")
 
         # Collect for ecosystem baseline
+        # Tag author username on recent tweets for quote search
+        for rt in recent_for_eco:
+            rt["_author_username"] = handle
         all_author_data.append({
             "handle": handle,
             "followers": followers,
             "median_impressions": median_imp,
             "recent_tweets": recent_for_eco if recent_for_eco else [],
+            "user_id": user_id,
         })
 
         # Store context for pass 2
@@ -262,7 +272,7 @@ def capture_from_accounts():
 
     # ── Compute ecosystem baseline ────────────────────────────────
     print(f"\n  Phase 2: Computing ecosystem baseline from {len(all_author_data)} accounts...")
-    ecosystem = compute_ecosystem_baseline(all_author_data)
+    ecosystem = compute_ecosystem_baseline(all_author_data, tracked_author_ids)
     if ecosystem:
         print(f"    Ecosystem median: {ecosystem['median_impressions']:.0f} imp/tweet")
         print(f"    Median efficiency: {ecosystem['median_imp_per_1k_followers']:.1f} imp per 1K followers")
@@ -432,10 +442,14 @@ def analyze_media(tweet: dict) -> dict:
     return {"has_media": True, "media_types": media_types, "descriptions": descriptions}
 
 
-def get_engagement_context(tweet: dict) -> dict:
+def get_engagement_context(tweet: dict, tracked_author_ids: set = None) -> dict:
     """Extract engagement signals from a tweet's public metrics and context.
-    Returns info about replies, quotes, and conversation activity — these
-    signal who's engaging and whether the conversation is high-quality."""
+    
+    If tracked_author_ids is provided, fetches reply/quote text but only keeps
+    replies/quotes from tracked accounts — filters out spam/bots automatically.
+    
+    Returns info about replies, quotes, and bookmark counts — plus the actual
+    text of replies/quotes from tracked accounts (high-signal engagement)."""
     metrics = tweet.get("public_metrics", {})
     
     reply_count = metrics.get("reply_count", 0)
@@ -446,40 +460,96 @@ def get_engagement_context(tweet: dict) -> dict:
     refs = tweet.get("referenced_tweets", [])
     quoted_tweet = next((r for r in refs if r.get("type") == "quoted"), None)
     
+    # Fetch reply/quote text from tracked accounts only (if requested)
+    tracked_replies = []
+    tracked_quotes = []
+    if tracked_author_ids and X_BEARER_TOKEN:
+        tweet_id = tweet.get("id", "")
+        if tweet_id:
+            # Fetch replies via conversation_id
+            try:
+                url = "https://api.twitter.com/2/tweets/search/recent"
+                params = {
+                    "query": f"conversation_id:{tweet_id}",
+                    "max_results": 100,
+                    "tweet.fields": "public_metrics,created_at,author_id",
+                    "expansions": "author_id",
+                    "user.fields": "public_metrics,username",
+                }
+                resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    users = {u["id"]: u for u in data.get("includes", {}).get("users", [])}
+                    for reply in data.get("data", []):
+                        author_id = reply.get("author_id", "")
+                        if author_id in tracked_author_ids:
+                            user = users.get(author_id, {})
+                            tracked_replies.append({
+                                "handle": user.get("username", "unknown"),
+                                "followers": user.get("public_metrics", {}).get("followers_count", 0),
+                                "text": reply.get("text", "")[:120],
+                                "created_at": reply.get("created_at", ""),
+                            })
+            except Exception:
+                pass
+            
+            # Fetch quote tweets via URL search
+            # Get the author's username for the URL
+            author_username = tweet.get("_author_username", "")
+            if author_username:
+                try:
+                    url = "https://api.twitter.com/2/tweets/search/recent"
+                    params = {
+                        "query": f'url:"x.com/{author_username}/status/{tweet_id}" OR url:"twitter.com/{author_username}/status/{tweet_id}"',
+                        "max_results": 100,
+                        "tweet.fields": "public_metrics,created_at,author_id",
+                        "expansions": "author_id",
+                        "user.fields": "public_metrics,username",
+                    }
+                    resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        users = {u["id"]: u for u in data.get("includes", {}).get("users", [])}
+                        for quote in data.get("data", []):
+                            # Skip the original tweet itself
+                            if quote.get("id") == tweet_id:
+                                continue
+                            author_id = quote.get("author_id", "")
+                            if author_id in tracked_author_ids:
+                                user = users.get(author_id, {})
+                                tracked_quotes.append({
+                                    "handle": user.get("username", "unknown"),
+                                    "followers": user.get("public_metrics", {}).get("followers_count", 0),
+                                    "text": quote.get("text", "")[:120],
+                                    "created_at": quote.get("created_at", ""),
+                                })
+                except Exception:
+                    pass
+    
     return {
         "reply_count": reply_count,
         "quote_count": quote_count,
         "bookmark_count": bookmark_count,
         "is_quote_tweet": quoted_tweet is not None,
         "quoted_tweet_id": quoted_tweet.get("id") if quoted_tweet else None,
-        "engagement_summary": _summarize_engagement(reply_count, quote_count, bookmark_count),
+        "tracked_replies": tracked_replies,
+        "tracked_quotes": tracked_quotes,
     }
 
 
-def _summarize_engagement(replies: int, quotes: int, bookmarks: int) -> str:
-    """Human-readable engagement summary for the prompt."""
-    parts = []
-    if replies > 0:
-        parts.append(f"{replies} replies")
-    if quotes > 0:
-        parts.append(f"{quotes} quotes")
-    if bookmarks > 0:
-        parts.append(f"{bookmarks} bookmarks")
-    if not parts:
-        return "no engagement yet"
-    return ", ".join(parts)
 
 
-
-
-def compute_ecosystem_baseline(all_author_data: list) -> dict:
+def compute_ecosystem_baseline(all_author_data: list, tracked_author_ids: set = None) -> dict:
     """Compute ecosystem-wide baseline from all tracked accounts.
     
     Normalizes impressions by follower count so we compare tweet quality,
     not account size. A tweet from a 100-follower account that gets 1K
     impressions is performing better than a 100K-follower account getting 5K.
     
-    all_author_data: list of {handle, followers, median_impressions, recent_tweets}
+    If tracked_author_ids is provided, fetches tracked replies/quotes on
+    ecosystem tweets — high-signal engagement from real accounts, no spam.
+    
+    all_author_data: list of {handle, followers, median_impressions, recent_tweets, user_id}
     """
     if not all_author_data:
         return {}
@@ -537,11 +607,21 @@ def compute_ecosystem_baseline(all_author_data: list) -> dict:
     best_tweets.sort(key=lambda t: t["imp_per_1k"], reverse=True)
     
     # Collect recent tweets across ecosystem (for "what's being talked about")
-    # Include engagement metrics + age — these are OTHER accounts' tweets, not
-    # the prediction target, so engagement data is fair game.
+    # Include engagement metrics + age + tracked replies/quotes — these are OTHER
+    # accounts' tweets, not the prediction target, so engagement data is fair game.
     # Age is calculated relative to the prediction tweet's post time, not now,
     # and tweets posted AFTER the prediction are excluded (no future leakage).
+    # Tracked replies/quotes are only fetched for the top 5 tweets by impressions
+    # (to limit API cost) — these show WHO in the ecosystem is engaging.
     recent_ecosystem = []
+    # Sort all tweets by impressions to find top 5 for reply/quote fetching
+    all_eco_tweets = []
+    for author in all_author_data:
+        for t in author.get("recent_tweets", []):
+            all_eco_tweets.append((author, t))
+    all_eco_tweets.sort(key=lambda x: x[1].get("public_metrics", {}).get("impression_count", 0), reverse=True)
+    top_5_ids = {t["id"] for _, t in all_eco_tweets[:5]} if all_eco_tweets else set()
+    
     for author in all_author_data:
         for t in author.get("recent_tweets", []):
             metrics = t.get("public_metrics", {})
@@ -552,7 +632,8 @@ def compute_ecosystem_baseline(all_author_data: list) -> dict:
                     created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
                 except Exception:
                     pass
-            recent_ecosystem.append({
+            
+            entry = {
                 "text": t.get("text", "")[:80],
                 "handle": author.get("handle", ""),
                 "impressions": metrics.get("impression_count", 0),
@@ -561,7 +642,18 @@ def compute_ecosystem_baseline(all_author_data: list) -> dict:
                 "quotes": metrics.get("quote_count", 0),
                 "created_at": created,
                 "_created_dt": created_dt,
-            })
+            }
+            
+            # Fetch tracked replies/quotes for top tweets only (cost control)
+            if tracked_author_ids and t.get("id") in top_5_ids:
+                t["_author_username"] = author.get("handle", "")
+                eng = get_engagement_context(t, tracked_author_ids)
+                if eng.get("tracked_replies"):
+                    entry["tracked_replies"] = eng["tracked_replies"]
+                if eng.get("tracked_quotes"):
+                    entry["tracked_quotes"] = eng["tracked_quotes"]
+            
+            recent_ecosystem.append(entry)
     
     # Sort by recency — take most recent 15 for "industry pulse"
     recent_ecosystem.sort(key=lambda t: t["created_at"], reverse=True)
@@ -908,6 +1000,11 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
                 eng.append(f"{rp['quotes']} quotes")
             eng_str = ", ".join(eng) if eng else "no engagement"
             eco_lines.append(f"    @{rp['handle']} ({age_str}, {eng_str}): \"{rp['text']}\"")
+            # Show tracked replies (from our accounts only — high signal)
+            for tr in rp.get("tracked_replies", [])[:3]:
+                eco_lines.append(f"      ↳ @{tr['handle']} ({tr['followers']:,} followers) replied: \"{tr['text'][:60]}\"")
+            for tq in rp.get("tracked_quotes", [])[:2]:
+                eco_lines.append(f"      ↳ @{tq['handle']} ({tq['followers']:,} followers) quoted: \"{tq['text'][:60]}\"")
         ecosystem_str = "\n".join(eco_lines)
         eco_accounts = eco.get("account_count", 0)
     else:
