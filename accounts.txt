@@ -1,0 +1,30 @@
+# PostProphet — Tracked Accounts
+# One X handle per line (without @). Lines starting with # are comments.
+# These are Bittensor subnet and ecosystem accounts.
+# Add or remove accounts to control the eval data pool.
+
+# Bittensor core
+opentensor
+bittensor
+taostats
+gittensor_io
+
+# Subnet teams
+ninja_subnet
+numinous_ai
+macrocosmosai
+manifoldlabs
+inference_labs
+datura_ai
+bitmindai
+bitsecai
+webuildscore
+womboai
+corcel_io
+masa_finance
+tensorplex
+
+# Notable Bittensor voices
+bittingthembits
+kibibyteme
+jlongo7

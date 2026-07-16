@@ -33,12 +33,12 @@ def x_headers():
     return {"Authorization": f"Bearer {X_BEARER_TOKEN}"}
 
 
-def search_recent_tweets(query="is:lang:en -is:retweet", max_results=50):
+def search_recent_tweets(query="AI -is:retweet", max_results=50):
     """Search recent tweets using X API v2."""
     url = "https://api.twitter.com/2/tweets/search/recent"
     params = {
         "query": query,
-        "max_results": min(max_results, 100),
+        "max_results": max(10, min(max_results, 100)),
         "tweet.fields": "public_metrics,created_at,author_id,lang",
         "expansions": "author_id",
         "user.fields": "public_metrics,username",
@@ -58,6 +58,180 @@ def get_tweet_impressions(tweet_id):
     return data.get("data", {}).get("public_metrics", {}).get("impression_count", 0)
 
 
+def get_author_latest_tweet(author_id):
+    """Fetch an author's most recent original tweet (not reply/retweet)."""
+    url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
+    params = {
+        "max_results": 10,
+        "tweet.fields": "public_metrics,created_at",
+        "exclude": "retweets,replies",
+    }
+    resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
+    if resp.status_code != 200:
+        return None
+    data = resp.json()
+    tweets = data.get("data", [])
+    return tweets[0] if tweets else None
+
+
+def get_user_by_username(username):
+    """Look up a user by username, return user data with public metrics."""
+    url = f"https://api.twitter.com/2/users/by/username/{username}"
+    params = {"user.fields": "public_metrics,username"}
+    resp = httpx.get(url, headers=x_headers(), params=params, timeout=15)
+    if resp.status_code != 200:
+        return None
+    return resp.json().get("data", {})
+
+
+def load_tracked_accounts():
+    """Load tracked accounts from accounts.txt."""
+    accounts_file = os.path.join(os.path.dirname(__file__), "accounts.txt")
+    if not os.path.exists(accounts_file):
+        return []
+    with open(accounts_file) as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
+
+def capture_from_accounts():
+    """Capture latest tweets from tracked accounts and predict with dynamic targets."""
+    print("\n" + "=" * 60)
+    print("  PostProphet — Account Tracking Capture")
+    print("=" * 60 + "\n")
+
+    handles = load_tracked_accounts()
+    if not handles:
+        print("  No accounts in accounts.txt. Add handles first.")
+        return []
+
+    print(f"  Tracking {len(handles)} accounts...\n")
+
+    # Try to get trending topics (optional)
+    try:
+        trending = get_trending_topics()
+    except Exception:
+        trending = []
+
+    predictions = []
+    for i, handle in enumerate(handles, 1):
+        print(f"  [{i}/{len(handles)}] @{handle}...")
+
+        # Look up user
+        user = get_user_by_username(handle)
+        if not user:
+            print(f"    ❌ User not found")
+            continue
+
+        user_id = user.get("id", "")
+        author_metrics = user.get("public_metrics", {})
+        followers = author_metrics.get("followers_count", 0)
+
+        if followers == 0:
+            print(f"    ⚠️  0 followers — skipping")
+            continue
+
+        # Fetch recent tweets for baseline
+        try:
+            recent = get_author_recent_tweets(user_id)
+        except Exception:
+            recent = []
+
+        baseline = compute_author_baseline(recent)
+        avg_imp = baseline.get("avg_impressions", 0)
+
+        if avg_imp == 0:
+            print(f"    ⚠️  No baseline data — skipping")
+            continue
+
+        # Dynamic target: 1.2x their average impressions
+        dynamic_target = int(avg_imp * 1.2)
+        print(f"    {followers:,} followers | avg {avg_imp:.0f} imp/tweet | target: {dynamic_target:,}")
+
+        # Get their latest tweet
+        latest = get_author_latest_tweet(user_id)
+        if not latest:
+            print(f"    ⚠️  No recent tweets — skipping")
+            continue
+
+        # Check if we already predicted this tweet
+        existing = load_predictions()
+        already_predicted = any(p["tweet_id"] == latest["id"] for p in existing)
+        if already_predicted:
+            print(f"    ⏭️  Already predicted this tweet — skipping")
+            continue
+
+        # Build recent samples for context
+        recent_samples = []
+        recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+        for t in recent_sorted[:3]:
+            recent_samples.append({
+                "text": t.get("text", "")[:100],
+                "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                "likes": t.get("public_metrics", {}).get("like_count", 0),
+                "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+            })
+
+        # Build context
+        tweet_metrics = latest.get("public_metrics", {})
+        context = {
+            "tweet_id": latest["id"],
+            "text": latest.get("text", ""),
+            "created_at": latest.get("created_at", ""),
+            "planned_post_time": latest.get("created_at", ""),
+            "platform": "x",
+            "author": {
+                "username": handle,
+                "followers": followers,
+                "following": author_metrics.get("following_count", 0),
+                "tweet_count": author_metrics.get("tweet_count", 0),
+            },
+            "author_baseline": baseline,
+            "author_recent_top_tweets": recent_samples,
+            "tweet_metrics_at_capture": {
+                "likes": tweet_metrics.get("like_count", 0),
+                "retweets": tweet_metrics.get("retweet_count", 0),
+                "replies": tweet_metrics.get("reply_count", 0),
+                "quotes": tweet_metrics.get("quote_count", 0),
+            },
+            "trending_topics": trending,
+            "has_x_data": True,
+        }
+
+        print(f"    Tweet: {context['text'][:80]}...")
+
+        # Predict with dynamic target
+        try:
+            prediction = predict(context, target=dynamic_target, timeframe=TIMEFRAME_HOURS)
+        except Exception as e:
+            print(f"    ❌ Prediction error: {e}")
+            continue
+
+        record = {
+            "tweet_id": context["tweet_id"],
+            "predicted_at": datetime.now(timezone.utc).isoformat(),
+            "timeframe_hours": TIMEFRAME_HOURS,
+            "target": dynamic_target,
+            "context": context,
+            "prediction": prediction,
+            "resolve_after": (
+                datetime.now(timezone.utc) + timedelta(hours=TIMEFRAME_HOURS)
+            ).isoformat(),
+            "resolved": False,
+            "actual_impressions": None,
+        }
+
+        save_prediction(record)
+        predictions.append(record)
+
+        prob = prediction.get("probability", 0.5)
+        reasoning = prediction.get("reasoning", "")[:100]
+        print(f"    → {prob:.0%} | target {dynamic_target:,} | {reasoning}")
+        print()
+
+    print(f"Captured {len(predictions)} new predictions. Waiting {TIMEFRAME_HOURS}h for resolution.")
+    return predictions
+
+
 def get_trending_topics():
     """Get trending topics (WOEID 1 = worldwide)."""
     url = "https://api.twitter.com/1.1/trends/place.json?id=1"
@@ -73,7 +247,7 @@ def get_author_recent_tweets(author_id, max_results=20):
     """Fetch an author's recent tweets to compute engagement baseline."""
     url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
     params = {
-        "max_results": min(max_results, 100),
+        "max_results": max(10, min(max_results, 100)),
         "tweet.fields": "public_metrics,created_at",
         "exclude": "retweets,replies",
     }
@@ -621,7 +795,8 @@ def main():
 PostProphet — Prediction engine for social media reach
 
 Usage:
-  python postprophet.py capture          — Capture real tweets and predict
+  python postprophet.py capture          — Capture real tweets via keyword search and predict
+  python postprophet.py track            — Capture latest tweets from tracked accounts (accounts.txt)
   python postprophet.py resolve          — Resolve pending predictions and score
   python postprophet.py report           — Show score history
   python postprophet.py run              — Capture → resolve → report
@@ -629,12 +804,12 @@ Usage:
                                            (requires --author, optional: --target, --timeframe, --post-time)
 
 Environment:
-  X_BEARER_TOKEN        — X API v2 bearer token
-  OPENAI_API_KEY        — OpenAI API key
-  POSTPROPHET_MODEL     — LLM model (default: gpt-4o-mini)
-  POSTPROPHET_TIMEFRAME — Hours to wait before resolving (default: 1)
-  POSTPROPHET_TARGET    — Target impressions (default: 10000)
-  POSTPROPHET_BATCH     — Tweets per capture batch (default: 20)
+  X_BEARER_TOKEN          — X API v2 bearer token
+  OPENAI_API_KEY          — OpenAI API key
+  POSTPROPHET_MODEL       — LLM model (default: gpt-4o-mini)
+  POSTPROPHET_TIMEFRAME   — Hours to wait before resolving (default: 1)
+  POSTPROPHET_TARGET      — Target impressions (default: 10000, ignored in track mode)
+  POSTPROPHET_BATCH       — Tweets per capture batch (default: 20)
 """)
         return
 
@@ -642,6 +817,8 @@ Environment:
 
     if cmd == "capture":
         capture_phase()
+    elif cmd == "track":
+        capture_from_accounts()
     elif cmd == "resolve":
         resolve_phase()
     elif cmd == "report":
