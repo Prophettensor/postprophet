@@ -1051,6 +1051,35 @@ def report_phase():
 # ── Predict for an unpublished tweet (product mode) ─────────────────────
 
 
+def build_ecosystem_from_cache(exclude_handle: str = None) -> dict:
+    """Build ecosystem baseline from cached author data.
+    Zero API cost — uses only what's already in the cache.
+    Returns empty dict if not enough cached accounts."""
+    cache = load_author_cache()
+    if not cache:
+        return {}
+    
+    all_author_data = []
+    for handle, data in cache.items():
+        if exclude_handle and handle == exclude_handle:
+            continue
+        followers = data.get("followers", 0)
+        baseline = data.get("baseline", {})
+        median_imp = baseline.get("median_impressions", 0)
+        if followers > 0 and median_imp > 0:
+            all_author_data.append({
+                "handle": handle,
+                "followers": followers,
+                "median_impressions": median_imp,
+                "recent_tweets": [],  # Cache doesn't store full tweet list
+            })
+    
+    if len(all_author_data) < 3:
+        return {}  # Not enough accounts for meaningful ecosystem
+    
+    return compute_ecosystem_baseline(all_author_data)
+
+
 def predict_tweet(
     text: str,
     author_username: str,
@@ -1140,6 +1169,11 @@ def predict_tweet(
     else:
         tgt = target or TARGET_IMPRESSIONS
 
+    # Build ecosystem context from cache (zero API cost)
+    ecosystem = build_ecosystem_from_cache(exclude_handle=author_username)
+    if ecosystem:
+        print(f"  Ecosystem: {ecosystem.get('account_count', 0)} accounts | median efficiency {ecosystem.get('median_imp_per_1k_followers', 0):.1f} imp/1K followers")
+
     context = {
         "text": text,
         "planned_post_time": post_time,
@@ -1154,6 +1188,7 @@ def predict_tweet(
         "author_baseline": baseline,
         "author_recent_top_tweets": recent_samples,
         "author_all_tweets": all_tweet_samples,
+        "ecosystem": ecosystem,
         "tweet_metrics_at_capture": {"likes": 0, "retweets": 0, "replies": 0},
         "trending_topics": trending,
         "has_x_data": has_x_data,
