@@ -165,8 +165,8 @@ def capture_from_accounts():
                 print(f"    ⚠️  No baseline data — skipping")
                 continue
 
-            dynamic_target = int(baseline.get("p75_impressions", median_imp * 1.2))
-            print(f"    {followers:,} followers | median {median_imp:.0f} imp/tweet | target (p75): {dynamic_target:,}")
+            dynamic_target = int(median_imp * 2)
+            print(f"    {followers:,} followers | median {median_imp:.0f} imp/tweet | target (2x): {dynamic_target:,}")
 
             user_id = cached["user_id"]
 
@@ -228,7 +228,6 @@ def capture_from_accounts():
                 "predicted_at": datetime.now(timezone.utc).isoformat(),
                 "timeframe_hours": TIMEFRAME_HOURS,
                 "target": dynamic_target,
-                "viral_target": int(baseline.get("median_impressions", 0) * 2),
                 "context": context,
                 "prediction": prediction,
                 "resolve_after": (
@@ -276,9 +275,9 @@ def capture_from_accounts():
             print(f"    ⚠️  No baseline data — skipping")
             continue
 
-        # Dynamic target: p75 (will this tweet beat their 75th percentile?)
-        dynamic_target = int(baseline.get("p75_impressions", median_imp * 1.2))
-        print(f"    {followers:,} followers | median {median_imp:.0f} imp/tweet | target (p75): {dynamic_target:,}")
+        # Dynamic target: 2x median (will this tweet be a standout?)
+        dynamic_target = int(median_imp * 2)
+        print(f"    {followers:,} followers | median {median_imp:.0f} imp/tweet | target (2x): {dynamic_target:,}")
 
         # Get their latest tweet
         tweets = get_author_latest_tweet(user_id)
@@ -345,7 +344,6 @@ def capture_from_accounts():
             "predicted_at": datetime.now(timezone.utc).isoformat(),
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": dynamic_target,
-            "viral_target": int(baseline.get("median_impressions", 0) * 2),
             "context": context,
             "prediction": prediction,
             "resolve_after": (
@@ -405,9 +403,9 @@ def get_author_recent_tweets(author_id, max_results=10):
 
 def compute_author_baseline(recent_tweets: list) -> dict:
     """Compute engagement baseline from an author's recent tweets.
-    Uses median + percentiles instead of mean — resistant to viral outliers."""
+    Uses median — resistant to viral outliers."""
     if not recent_tweets:
-        return {"median_impressions": 0, "p25_impressions": 0, "p75_impressions": 0, "sample_size": 0}
+        return {"median_impressions": 0, "median_likes": 0, "median_retweets": 0, "sample_size": 0}
 
     impressions = sorted([t.get("public_metrics", {}).get("impression_count", 0) for t in recent_tweets])
     likes = sorted([t.get("public_metrics", {}).get("like_count", 0) for t in recent_tweets])
@@ -416,7 +414,6 @@ def compute_author_baseline(recent_tweets: list) -> dict:
     n = len(impressions)
 
     def percentile(data, p):
-        """Linear interpolation percentile."""
         if n == 1:
             return data[0]
         k = (n - 1) * p
@@ -426,8 +423,6 @@ def compute_author_baseline(recent_tweets: list) -> dict:
 
     return {
         "median_impressions": percentile(impressions, 0.50),
-        "p25_impressions": percentile(impressions, 0.25),
-        "p75_impressions": percentile(impressions, 0.75),
         "median_likes": percentile(likes, 0.50),
         "median_retweets": percentile(retweets, 0.50),
         "sample_size": n,
@@ -435,16 +430,14 @@ def compute_author_baseline(recent_tweets: list) -> dict:
 
 
 def get_reference_tweets(recent_tweets: list, baseline: dict) -> tuple:
-    """Find the tweets closest to p75 (a 'hit') and p25 (a 'miss') for context.
-    Returns (hit_sample, miss_sample)."""
-    if not recent_tweets or not baseline.get("p75_impressions"):
+    """Find the author's best and worst recent tweets for context.
+    Returns (hit_sample, miss_sample) — raw examples, not percentile-selected."""
+    if not recent_tweets:
         return None, None
 
-    p75 = baseline["p75_impressions"]
-    p25 = baseline["p25_impressions"]
-
-    hit_tweet = min(recent_tweets, key=lambda t: abs(t.get("public_metrics", {}).get("impression_count", 0) - p75))
-    miss_tweet = min(recent_tweets, key=lambda t: abs(t.get("public_metrics", {}).get("impression_count", 0) - p25))
+    sorted_tweets = sorted(recent_tweets, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+    hit_tweet = sorted_tweets[0]
+    miss_tweet = sorted_tweets[-1]
 
     def format_sample(t, tier):
         return {
@@ -520,7 +513,7 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
     handle = author.get("username", "")
 
     # Compute engagement baseline from recent tweets (with cache)
-    baseline = {"median_impressions": 0, "p25_impressions": 0, "p75_impressions": 0, "sample_size": 0}
+    baseline = {"median_impressions": 0, "median_likes": 0, "median_retweets": 0, "sample_size": 0}
     recent_samples = []
     if fetch_baseline and handle:
         cached = get_cached_author(handle)
@@ -569,13 +562,12 @@ PREDICTION_PROMPT = """You are a social media reach forecasting harness.
 
 Given a tweet and its context, predict the probability (0.0 to 1.0) that this tweet will reach {target} impressions within {timeframe} hours of being posted.
 
-The target is this author's 75th percentile — meaning their top 25%% of tweets reach this level. You're predicting whether this tweet is a "good one" for this author, not whether it goes viral.
+The target is 2x the author's median impressions — meaning it needs to perform twice as well as their typical tweet. You're predicting whether this is a standout tweet for this author.
 
 Consider:
 - Author's follower count AND engagement baseline (their median impressions per tweet)
-- The spread between their p25 (typical miss) and p75 (typical hit) — a wide gap means erratic performance
-- How this tweet compares to their reference "hit" tweet (does it have similar hooks, topics, or formats?)
-- How this tweet compares to their reference "miss" tweet (does it share patterns with their flops?)
+- How this tweet compares to their best-performing tweet (does it have similar hooks, topics, or formats?)
+- How this tweet compares to their worst-performing tweet (does it share patterns with their flops?)
 - Tweet content (hook quality, topic relevance, media, length)
 - What's currently trending and whether the tweet relates
 - Time of day the tweet was posted and whether that's a high-engagement window
@@ -585,26 +577,24 @@ Consider:
 
 Return JSON:
 {{
-  "probability": <float 0.0-1.0 — chance of reaching {target} impressions (their p75)>,
-  "viral_probability": <float 0.0-1.0 — chance of reaching {viral_target} impressions (2x their median)>,
+  "probability": <float 0.0-1.0>,
   "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
   "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
-  "pattern_analysis": "<1-2 sentences. What specific pattern does the hit tweet use that this tweet should match? Identify: hook type (question, contrarian claim, announcement, data point), length (short/medium/long), structure, emotional trigger, presence of media or hashtags>",
-  "suggestions": "<1-2 sentences. Give CONCRETE, actionable editorial feedback. Not 'add a trending topic' but 'Open with a bold claim under 15 words, drop all hashtags, match the structure of the hit tweet.'>"
+  "pattern_analysis": "<1-2 sentences. What specific pattern does their best tweet use that this tweet should match? Identify: hook type (question, contrarian claim, announcement, data point), length (short/medium/long), structure, emotional trigger, presence of media or hashtags>",
+  "suggestions": "<1-2 sentences. Give CONCRETE, actionable editorial feedback. Not 'add a trending topic' but 'Open with a bold claim under 15 words, drop all hashtags, match the structure of their best tweet.'>"
 }}
 
 Tweet: {text}
 Author: @{username} ({followers} followers, {following} following)
-Author baseline: median {median_impressions:.0f} impressions/tweet, p25 {p25_impressions:.0f}, p75 {p75_impressions:.0f}, median {median_likes:.0f} likes/tweet, median {median_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
-Author's reference "hit" tweet (closest to p75):
+Author baseline: median {median_impressions:.0f} impressions/tweet, median {median_likes:.0f} likes/tweet, median {median_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
+Author's best recent tweet:
 {hit_tweet}
-Author's reference "miss" tweet (closest to p25):
+Author's worst recent tweet:
 {miss_tweet}
 Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
-Target: {target} impressions (their p75)
-Viral target: {viral_target} impressions (2x their median)
+Target: {target} impressions (2x their median)
 Trending: {trending}"""
 
 
@@ -649,8 +639,6 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         followers_str = "unknown (infer from username)"
         following_str = "unknown"
         median_imp = 0
-        p25_imp = 0
-        p75_imp = 0
         median_likes = 0
         median_retweets = 0
         baseline_sample = 0
@@ -661,8 +649,6 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         followers_str = context["author"]["followers"]
         following_str = context["author"]["following"]
         median_imp = baseline.get("median_impressions", 0)
-        p25_imp = baseline.get("p25_impressions", 0)
-        p75_imp = baseline.get("p75_impressions", 0)
         median_likes = baseline.get("median_likes", 0)
         median_retweets = baseline.get("median_retweets", 0)
         baseline_sample = baseline.get("sample_size", 0)
@@ -680,15 +666,12 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
 
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
-        viral_target=int(median_imp * 2) if median_imp else int(tgt * 2),
         timeframe=tf,
         text=context["text"],
         username=context["author"]["username"],
         followers=followers_str,
         following=following_str,
         median_impressions=median_imp,
-        p25_impressions=p25_imp,
-        p75_impressions=p75_imp,
         median_likes=median_likes,
         median_retweets=median_retweets,
         baseline_sample=baseline_sample,
@@ -722,41 +705,26 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
 # ── Eval: Brier score ───────────────────────────────────────────────────
 
 
-def brier_score(predictions: list[dict]) -> dict:
-    """Calculate Brier scores for a batch of resolved predictions.
-    
-    Returns both p75 Brier and viral Brier (2x median).
+def brier_score(predictions: list[dict]) -> float:
+    """Calculate Brier score for a batch of resolved predictions.
     
     Brier score = mean((predicted_probability - actual_outcome)^2)
-    Lower is better. 0 = perfect, 1 = worst.
+    Lower is better. 0 = perfect, 0.25 = no skill (always 0.5), 1 = worst.
     """
     if not predictions:
-        return {"p75": 1.0, "viral": 1.0}
+        return 1.0
 
-    p75_total = 0.0
-    viral_total = 0.0
+    total = 0.0
     count = 0
     for p in predictions:
         if p.get("resolved") is not True:
             continue
         prob = p["prediction"]["probability"]
         actual = 1.0 if p["actual_impressions"] >= p["target"] else 0.0
-        p75_total += (prob - actual) ** 2
-        
-        # Viral Brier (2x median target)
-        viral_prob = p["prediction"].get("viral_probability", 0.0)
-        viral_target = p.get("viral_target", int(p["context"].get("author_baseline", {}).get("median_impressions", 0) * 2))
-        viral_actual = 1.0 if p["actual_impressions"] >= viral_target else 0.0
-        viral_total += (viral_prob - viral_actual) ** 2
-        
+        total += (prob - actual) ** 2
         count += 1
 
-    if count == 0:
-        return {"p75": 1.0, "viral": 1.0}
-    return {
-        "p75": p75_total / count,
-        "viral": viral_total / count,
-    }
+    return total / count if count > 0 else 1.0
 
 
 # ── Harness: the main loop ──────────────────────────────────────────────
@@ -835,7 +803,6 @@ def capture_phase():
             "predicted_at": datetime.now(timezone.utc).isoformat(),
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": TARGET_IMPRESSIONS,
-            "viral_target": int(baseline.get("median_impressions", 0) * 2),
             "context": context,
             "prediction": prediction,
             "resolve_after": (
@@ -900,17 +867,15 @@ def resolve_phase():
         print(f"  No predictions ready to resolve. {unresolved} still pending.")
         return
 
-    # Calculate Brier scores for this batch
-    scores = brier_score(resolved_batch)
-    print(f"\n  Brier score (p75):  {scores['p75']:.4f} (0=perfect, 1=worst)")
-    print(f"  Brier score (viral): {scores['viral']:.4f} (0=perfect, 1=worst)")
+    # Calculate Brier score for this batch
+    score = brier_score(resolved_batch)
+    print(f"\n  Brier score: {score:.4f} (0=perfect, 0.25=no skill, 1=worst)")
 
     # Save score record
     score_record = {
         "scored_at": now.isoformat(),
         "batch_size": len(resolved_batch),
-        "brier_p75": scores["p75"],
-        "brier_viral": scores["viral"],
+        "brier_score": score,
         "model": OPENAI_MODEL,
         "timeframe_hours": TIMEFRAME_HOURS,
         "target": TARGET_IMPRESSIONS,
@@ -923,7 +888,7 @@ def resolve_phase():
             f.write(json.dumps(p) + "\n")
 
     print(f"  Resolved {len(resolved_batch)} predictions. Score saved.")
-    return scores
+    return score
 
 
 def report_phase():
@@ -939,25 +904,22 @@ def report_phase():
     with open(SCORES_FILE) as f:
         scores = [json.loads(line) for line in f if line.strip()]
 
-    print(f"  {'Date':<24} {'Model':<20} {'p75':<8} {'viral':<8} {'Batch':<6}")
-    print(f"  {'-' * 70}")
+    print(f"  {'Date':<24} {'Model':<20} {'Brier':<8} {'Batch':<6}")
+    print(f"  {'-' * 60}")
     for s in scores:
         date = s["scored_at"][:19]
         model = s["model"][:18]
-        brier_p75 = s.get("brier_p75", s.get("brier_score", 1.0))
-        brier_viral = s.get("brier_viral", 1.0)
+        brier = s.get("brier_score", 1.0)
         batch = s["batch_size"]
-        print(f"  {date:<24} {model:<20} {brier_p75:<8.4f} {brier_viral:<8.4f} {batch:<6}")
+        print(f"  {date:<24} {model:<20} {brier:<8.4f} {batch:<6}")
 
     # Overall stats
-    all_p75 = [s.get("brier_p75", s.get("brier_score", 1.0)) for s in scores]
-    all_viral = [s.get("brier_viral", 1.0) for s in scores]
-    avg_p75 = sum(all_p75) / len(all_p75)
-    avg_viral = sum(all_viral) / len(all_viral)
+    all_briers = [s.get("brier_score", 1.0) for s in scores]
+    avg = sum(all_briers) / len(all_briers)
     total_preds = sum(s["batch_size"] for s in scores)
-    print(f"\n  Average Brier (p75):   {avg_p75:.4f}")
-    print(f"  Average Brier (viral): {avg_viral:.4f}")
-    print(f"  Best Brier (p75):      {min(all_p75):.4f}")
+    print(f"\n  Average Brier:     {avg:.4f}")
+    print(f"  Best Brier:        {min(all_briers):.4f}")
+    print(f"  No-skill baseline: 0.2500 (always predict 50%)")
     print(f"  Total batches: {len(scores)}")
     print(f"  Total predictions: {total_preds}")
 
@@ -1043,7 +1005,7 @@ def predict_tweet(
     # Try to fetch author info from X API
     # If no bearer token or API fails, fall back to LLM-only mode
     author_metrics = {"followers_count": 0, "following_count": 0, "tweet_count": 0}
-    baseline = {"median_impressions": 0, "p25_impressions": 0, "p75_impressions": 0, "sample_size": 0}
+    baseline = {"median_impressions": 0, "median_likes": 0, "median_retweets": 0, "sample_size": 0}
     recent_samples = []
     trending = []
     has_x_data = False
@@ -1092,9 +1054,9 @@ def predict_tweet(
         except Exception:
             pass
 
-    # Use author's p75 as target if no explicit target given
-    if target is None and baseline.get("p75_impressions"):
-        tgt = int(baseline["p75_impressions"])
+    # Use author's 2x median as target if no explicit target given
+    if target is None and baseline.get("median_impressions"):
+        tgt = int(baseline["median_impressions"] * 2)
     else:
         tgt = target or TARGET_IMPRESSIONS
 
