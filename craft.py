@@ -4,6 +4,10 @@ PostProphet Craft — Iterative tweet improvement loop.
 Drafts a tweet, gets PostProphet's prediction + reasoning, revises based on
 feedback, repeats until target confidence or max iterations.
 
+The writing agent sees the author's actual hit/miss reference tweets and
+PostProphet's pattern analysis — so it can match what works instead of
+guessing.
+
 Usage:
   python craft.py --author <handle> --topic "<what the tweet should be about>"
                   [--target-confidence 0.80] [--max-iterations 5]
@@ -21,52 +25,105 @@ from openai import OpenAI
 
 # Import PostProphet's predict function
 sys.path.insert(0, os.path.dirname(__file__))
-from postprophet import predict_tweet, OPENAI_MODEL
+from postprophet import predict_tweet, OPENAI_MODEL, get_cached_author, get_user_by_username, get_author_recent_tweets, compute_author_baseline, get_reference_tweets, cache_author, x_headers, X_BEARER_TOKEN
 
 
-def draft_tweet(client, topic, author, previous_tweet=None, feedback=None):
+def fetch_author_examples(handle):
+    """Fetch the author's reference hit/miss tweets for the writing agent."""
+    if not X_BEARER_TOKEN:
+        return None, None
+    
+    # Check cache first
+    cached = get_cached_author(handle)
+    if cached and cached.get("recent_samples"):
+        samples = cached["recent_samples"]
+        hit = next((s for s in samples if s.get("tier") == "hit"), None)
+        miss = next((s for s in samples if s.get("tier") == "miss"), None)
+        if hit and miss:
+            return hit, miss
+    
+    # Cold fetch
+    user = get_user_by_username(handle)
+    if not user:
+        return None, None
+    user_id = user.get("id", "")
+    if not user_id:
+        return None, None
+    
+    recent = get_author_recent_tweets(user_id)
+    if not recent:
+        return None, None
+    
+    baseline = compute_author_baseline(recent)
+    hit, miss = get_reference_tweets(recent, baseline)
+    
+    if hit or miss:
+        cache_author(handle, user, baseline, [s for s in [hit, miss] if s])
+    
+    return hit, miss
+
+
+def draft_tweet(client, topic, author, hit_tweet=None, miss_tweet=None, previous_tweet=None, feedback=None):
     """Draft or revise a tweet using an LLM guided by PostProphet's feedback."""
+    
+    # Build reference context
+    ref_section = ""
+    if hit_tweet or miss_tweet:
+        ref_lines = []
+        if hit_tweet:
+            ref_lines.append(f"THEIR HIT (p75, {hit_tweet['impressions']:,} impressions): \"{hit_tweet['text']}\"")
+        if miss_tweet:
+            ref_lines.append(f"THEIR MISS (p25, {miss_tweet['impressions']:,} impressions): \"{miss_tweet['text']}\"")
+        ref_section = f"""
+Author's reference tweets (these are REAL examples of what works and what doesn't for this account):
+{chr(10).join(ref_lines)}
+
+Study the hit tweet's structure — hook type, length, tone, format. Match it.
+Study the miss tweet's patterns — avoid them.
+"""
     
     if previous_tweet is None:
         # First draft — just write the tweet
         prompt = f"""You are a social media content writer for @{author} on X.
 
 Write a single tweet about: {topic}
-
+{ref_section}
 Rules:
 - Maximum 280 characters
-- No hashtags unless they're organic to the content
-- No "AI" or "Agent" buzzwords unless the topic demands it
-- Match the voice of a crypto/AI infrastructure account
-- One tweet only, no threads
+- Match the voice and structure of their hit tweet
 - Be bold and specific, not vague
+- One tweet only, no threads
 
 Return only the tweet text, nothing else."""
     else:
         # Revision — use PostProphet's feedback to improve
+        pattern = feedback.get("pattern_analysis", "")
         prompt = f"""You are revising a tweet for @{author} on X.
 
 Current tweet:
 "{previous_tweet}"
 
-PostProphet feedback (treat this as expert editorial guidance):
+PostProphet feedback (treat this as expert editorial guidance from a managing editor):
 - Probability of beating their p75: {feedback['probability']:.0%}
 - Reasoning: {feedback['reasoning']}
+- Pattern analysis: {pattern}
 - Suggestion: {feedback['suggestions']}
-
-Revise the tweet to address the feedback. Keep what's working, fix what isn't.
+{ref_section}
+Revise the tweet to address the feedback. Be specific:
+- If it says shorten, cut words
+- If it says match the hit tweet's hook, study the hit tweet above and use a similar opening
+- If it says drop hashtags, drop them
+- Don't just shuffle words — genuinely change the approach if needed
 
 Rules:
 - Maximum 280 characters
-- Don't just add words to please the feedback — genuinely improve the tweet
-- If the feedback says it's already strong, make targeted refinements
 - One tweet only, no threads
 - Return only the tweet text, nothing else"""
 
     resp = client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=[
-            {"role": "system", "content": "You are a social media content writer. You write tweets that perform. Return only the tweet text, never commentary."},
+            {"role": "system", "content": "You are a social media content writer. You write tweets that perform. You take editorial feedback seriously and make real changes, not cosmetic ones. Return only the tweet text, never commentary."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.7,
@@ -96,17 +153,26 @@ def main():
     print("=" * 60)
     print()
     
+    # Fetch author's reference tweets once (reused across all iterations)
+    print("  Fetching author reference tweets...")
+    hit_tweet, miss_tweet = fetch_author_examples(author)
+    if hit_tweet:
+        print(f"  Hit:  \"{hit_tweet['text'][:60]}...\" ({hit_tweet['impressions']:,} impressions)")
+    if miss_tweet:
+        print(f"  Miss: \"{miss_tweet['text'][:60]}...\" ({miss_tweet['impressions']:,} impressions)")
+    print()
+    
     current_tweet = None
     feedback = None
+    prob = 0
+    i = 0
     
     for i in range(1, args.max_iterations + 1):
         print(f"  ── Iteration {i}/{args.max_iterations} ──")
         print()
         
         # Draft or revise
-        current_tweet = draft_tweet(client, args.topic, author, current_tweet, feedback)
-        
-        # Clean up any quotes or extra whitespace
+        current_tweet = draft_tweet(client, args.topic, author, hit_tweet, miss_tweet, current_tweet, feedback)
         current_tweet = current_tweet.strip().strip('"').strip()
         
         print(f"  Tweet: {current_tweet}")
@@ -122,9 +188,12 @@ def main():
         prob = result.get("probability", 0)
         reasoning = result.get("reasoning", "")
         suggestions = result.get("suggestions", "")
+        pattern = result.get("pattern_analysis", "")
         
         print(f"  Probability: {prob:.0%}")
         print(f"  Reasoning: {reasoning}")
+        if pattern:
+            print(f"  Pattern: {pattern}")
         if suggestions:
             print(f"  Suggestion: {suggestions}")
         print()
@@ -134,6 +203,7 @@ def main():
             "probability": prob,
             "reasoning": reasoning,
             "suggestions": suggestions,
+            "pattern_analysis": pattern,
         }
         
         if prob >= args.target_confidence:

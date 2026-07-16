@@ -586,7 +586,8 @@ Return JSON:
   "probability": <float 0.0-1.0>,
   "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
   "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
-  "suggestions": "<1 sentence on what specific change would improve the prediction>"
+  "pattern_analysis": "<1-2 sentences. What specific pattern does the hit tweet use that this tweet should match? Identify: hook type (question, contrarian claim, announcement, data point), length (short/medium/long), structure, emotional trigger, presence of media or hashtags>",
+  "suggestions": "<1-2 sentences. Give CONCRETE, actionable editorial feedback. Not 'add a trending topic' but 'Open with a bold claim under 15 words, drop all hashtags, match the structure of the hit tweet.'>"
 }}
 
 Tweet: {text}
