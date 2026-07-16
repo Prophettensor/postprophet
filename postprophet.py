@@ -61,12 +61,13 @@ def get_tweet_impressions(tweet_id):
     return data.get("data", {}).get("public_metrics", {}).get("impression_count", 0)
 
 
-def get_author_latest_tweet(author_id):
-    """Fetch an author's most recent original tweet (not reply/retweet)."""
+def get_author_latest_tweet(author_id, max_results=10):
+    """Fetch an author's most recent original tweets (not reply/retweet).
+    Returns up to max_results tweets, newest first."""
     url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
     params = {
-        "max_results": 10,
-        "tweet.fields": "public_metrics,created_at",
+        "max_results": max(10, min(max_results, 100)),
+        "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets",
         "exclude": "retweets,replies",
     }
     resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
@@ -74,7 +75,37 @@ def get_author_latest_tweet(author_id):
         return None
     data = resp.json()
     tweets = data.get("data", [])
-    return tweets[0] if tweets else None
+    return tweets if tweets else None
+
+
+def pick_fresh_tweet(tweets, max_age_hours=12, author_id=None):
+    """From a list of tweets, return the first one that's:
+    1. Under max_age_hours old
+    2. Not a self-reply (thread continuation)
+    Returns None if none qualify."""
+    if not tweets:
+        return None
+    now = datetime.now(timezone.utc)
+    for tweet in tweets:
+        # Check age
+        created_str = tweet.get("created_at", "")
+        if not created_str:
+            continue
+        try:
+            created = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+            age_hours = (now - created).total_seconds() / 3600
+            if age_hours > max_age_hours:
+                continue
+        except Exception:
+            continue
+
+        # Check self-reply (thread continuation)
+        in_reply_to = tweet.get("in_reply_to_user_id")
+        if in_reply_to and author_id and str(in_reply_to) == str(author_id):
+            continue
+
+        return tweet
+    return None
 
 
 def get_user_by_username(username):
@@ -140,9 +171,14 @@ def capture_from_accounts():
             user_id = cached["user_id"]
 
             # Still need to fetch latest tweet (not cached — changes every run)
-            latest = get_author_latest_tweet(user_id)
-            if not latest:
+            tweets = get_author_latest_tweet(user_id)
+            if not tweets:
                 print(f"    ⚠️  No recent tweets — skipping")
+                continue
+
+            latest = pick_fresh_tweet(tweets, max_age_hours=12, author_id=user_id)
+            if not latest:
+                print(f"    ⏭️  No tweets under 12h — skipping")
                 continue
 
             existing = load_predictions()
@@ -244,9 +280,14 @@ def capture_from_accounts():
         print(f"    {followers:,} followers | avg {avg_imp:.0f} imp/tweet | target: {dynamic_target:,}")
 
         # Get their latest tweet
-        latest = get_author_latest_tweet(user_id)
-        if not latest:
+        tweets = get_author_latest_tweet(user_id)
+        if not tweets:
             print(f"    ⚠️  No recent tweets — skipping")
+            continue
+
+        latest = pick_fresh_tweet(tweets, max_age_hours=12, author_id=user_id)
+        if not latest:
+            print(f"    ⏭️  No tweets under 12h — skipping")
             continue
 
         # Check if we already predicted this tweet
