@@ -8,7 +8,7 @@ PostProphet is a prediction harness that forecasts the probability of a tweet hi
 
 ```
 1. write    — draft your tweet
-2. predict  — PostProphet scores it on 8 dimensions, predicts probability + feedback
+2. predict  — PostProphet scores it and predicts probability + feedback
 3. craft    — iterate with the craft loop: draft → predict → revise → repeat
 4. post     — ship when the probability is high enough
 ```
@@ -40,20 +40,9 @@ python postprophet.py resolve          — Resolve pending predictions and score
 python postprophet.py report           — Show score history + detailed predictions
 ```
 
-## Scoring dimensions
+## Scoring
 
-Each tweet is scored on 8 dimensions (0-10), grounded in the X algorithm's engagement weights:
-
-| Dimension | What it measures | Algorithm basis |
-|---|---|---|
-| hook_strength | Scroll-stopping opener | — |
-| specificity | Concrete vs vague | — |
-| emotional_trigger | Makes you feel something | — |
-| reply_inducement | Invites response | Replies = 27-150x a like |
-| bookmark_worthiness | Reference-worthy content | Bookmarks = 10-12x a like |
-| structure_readability | Line breaks, visual pacing | Dwell time = ~10x a like |
-| clarity_density | Insight per character | — |
-| link_penalty_risk | External URL present | Links = -30% to -94% reach |
+Each tweet is scored on multiple dimensions (0-10), grounded in the X algorithm's engagement weights. Scores cover content quality (hook, specificity, emotional trigger) and algorithmic signals (reply inducement, bookmark worthiness, structure, clarity, link penalty risk). The dimensions evolve as the harness improves.
 
 ## Ecosystem context
 

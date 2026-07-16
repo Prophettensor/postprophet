@@ -1415,8 +1415,7 @@ Usage:
                                            (requires --author, optional: --target, --timeframe, --post-time)
   python craft.py --author <handle> --topic "<topic>"  — Iterative tweet improvement loop
 
-Scoring: 8 dimensions (hook, specificity, emotion, reply_inducement,
-         bookmark_worthiness, structure, clarity, link_penalty_risk)
+Scoring: content quality + algorithmic signals (0-10 scale)
 Target:  2x author's median impressions (aspirational, grounded in real history)
 Eval:    Brier score (0=perfect, 1=worst)
 
