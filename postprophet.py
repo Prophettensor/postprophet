@@ -160,15 +160,26 @@ def capture_from_accounts():
             print(f"    ⏭️  Already predicted this tweet — skipping")
             continue
 
-        # Build recent samples for context
-        recent_samples = []
+        # Build recent samples for context — top 3 AND bottom 3
         recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+        recent_samples = []
+        # Top 3
         for t in recent_sorted[:3]:
             recent_samples.append({
                 "text": t.get("text", "")[:100],
                 "impressions": t.get("public_metrics", {}).get("impression_count", 0),
                 "likes": t.get("public_metrics", {}).get("like_count", 0),
                 "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+                "tier": "best",
+            })
+        # Bottom 3
+        for t in recent_sorted[-3:]:
+            recent_samples.append({
+                "text": t.get("text", "")[:100],
+                "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                "likes": t.get("public_metrics", {}).get("like_count", 0),
+                "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+                "tier": "worst",
             })
 
         # Build context
@@ -340,11 +351,11 @@ Given a tweet and its context, predict the probability (0.0 to 1.0) that this tw
 
 Consider:
 - Author's follower count AND engagement baseline (their avg impressions per tweet)
-- How this tweet compares to their recent top-performing tweets
+- How this tweet compares to their best-performing tweets (does it have similar hooks, topics, or formats?)
+- How this tweet compares to their worst-performing tweets (does it share patterns with their flops?)
 - Tweet content (hook quality, topic relevance, media, length)
 - What's currently trending and whether the tweet relates
-- Time of day the tweet was posted (or will be posted) and whether that's a high-engagement window
-- Whether the author's audience is active at that time
+- Time of day the tweet was posted and whether that's a high-engagement window
 - Time elapsed since posting (older tweets have less room to grow)
 
 {llm_only_note}
@@ -353,15 +364,17 @@ Return JSON:
 {{
   "probability": <float 0.0-1.0>,
   "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
-  "reasoning": "<2-3 sentences explaining the prediction, referencing specific data points>",
-  "suggestions": "<1 sentence on what would improve the prediction>"
+  "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
+  "suggestions": "<1 sentence on what specific change would improve the prediction>"
 }}
 
 Tweet: {text}
 Author: @{username} ({followers} followers, {following} following)
 Author baseline: avg {avg_impressions:.0f} impressions/tweet, avg {avg_likes:.0f} likes/tweet, avg {avg_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
-Author's recent top tweets:
-{recent_tweets}
+Author's best tweets:
+{best_tweets}
+Author's worst tweets:
+{worst_tweets}
 Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
@@ -414,6 +427,8 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         avg_retweets = 0
         baseline_sample = 0
         recent_str = "  (no recent data — infer from knowledge)"
+        best_str = "  (no data — infer from knowledge)"
+        worst_str = "  (no data — infer from knowledge)"
     else:
         llm_only_note = ""
         followers_str = context["author"]["followers"]
@@ -424,8 +439,15 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         baseline_sample = baseline.get("sample_size", 0)
         recent_lines = []
         for t in context.get("author_recent_top_tweets", []):
-            recent_lines.append(f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes")
-        recent_str = "\n".join(recent_lines) if recent_lines else "  (no recent data)"
+            if t.get("tier") == "best":
+                recent_lines.append(f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes")
+        best_str = "\n".join(recent_lines) if recent_lines else "  (no data)"
+        
+        worst_lines = []
+        for t in context.get("author_recent_top_tweets", []):
+            if t.get("tier") == "worst":
+                worst_lines.append(f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes")
+        worst_str = "\n".join(worst_lines) if worst_lines else "  (no data)"
 
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
@@ -438,7 +460,9 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         avg_likes=avg_likes,
         avg_retweets=avg_retweets,
         baseline_sample=baseline_sample,
-        recent_tweets=recent_str,
+        recent_tweets=best_str,
+        best_tweets=best_str,
+        worst_tweets=worst_str,
         posted_at=posted_at_str,
         elapsed=elapsed_str,
         trending=", ".join(context.get("trending_topics", [])) or "none available",

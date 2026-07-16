@@ -1,20 +1,55 @@
 # PostProphet — Tracked Accounts
 # One X handle per line (without @). Lines starting with # are comments.
-# Active Bittensor ecosystem accounts (verified posting within last 3 days).
-# Remove dead/inactive accounts and add new ones as the ecosystem evolves.
+# Active Bittensor ecosystem accounts (posted within 7 days, 50+ followers).
+# Source: taoflute.com subnet data + X API verification.
 
 # Bittensor core
 opentensor
+bittensor
 taostats
 gittensor_io
 
-# Subnet teams (active)
-ninja_subnet
-numinous_ai
+# Subnet teams
+chutes_ai
 macrocosmosai
 inference_labs
-bitsecai
+ninja_subnet
+numinous_ai
+desearch_ai
+tplr_ai
+targoncompute
+oroagents
+404gen_
+zeussubnet
+blockmachine_io
+trishoolai
+quasarmodels
+say_gm_
+endurenet
+ai_detection
+0x_Markets
 webuildscore
+qbittensorlabs
+lium_io
+yanez__ai
+babelbit
+bitsecai
+tpn_labs
+natixnetwork
+vidaio_
+Investing88ai
+connitoai
+djinn_gg
+b1m_ai
+nodexo
+vocence_bt
+minotaursubnet
+somasubnet
+glyphresearch
+heydittoai
+sundaebar_ai
+cookingtao_
+swarmsubnet
 
 # Notable Bittensor voices
 bittingthembits
