@@ -1,47 +1,85 @@
 # PostProphet — Tracked Accounts
 # One X handle per line (without @). Lines starting with # are comments.
-# Bittensor subnet accounts only (posted within 7 days, 50+ followers).
+# Bittensor subnet accounts only, ordered by subnet ID.
 # Source: taoflute.com subnet data + X API verification.
 
-# Subnet teams
-chutes_ai
+# SN1 — Apex
 macrocosmosai
+# SN2 — DSperse
 inference_labs
-ninja_subnet
-numinous_ai
-desearch_ai
-tplr_ai
+# SN3 — Targon
 targoncompute
+# SN5 — Open Kaito
+numinous_ai
+# SN14 — ORO
 oroagents
+# SN16 — BitAds
 404gen_
+# SN17 — Three Gen
 zeussubnet
+# SN18 — Cortex.t
 blockmachine_io
+# SN21 — Desearch
+desearch_ai
+# SN22 — SocialTensor
 trishoolai
+# SN23 — Quasar
 quasarmodels
+# SN27 — NI Compute
 say_gm_
+# SN29 — Coldint
 endurenet
+# SN31 — It's AI
 ai_detection
+# SN34 — BitMind
 0x_Markets
+# SN36 — Eirel
+aureliusaligned
+# SN43 — Graphite
 webuildscore
+# SN47 — Neural3D
 qbittensorlabs
+# SN50 — Synth
 lium_io
+# SN53 — Sportstensor
 yanez__ai
+# SN58 — Dippy Speech
 babelbit
+# SN59 — Bitsec
 bitsecai
+# SN63 — Agent Arena
+chutes_ai
+# SN64 — Chutes
 tpn_labs
+# SN71 — Unknown
 natixnetwork
-vidaio_
-Investing88ai
-connitoai
-djinn_gg
-b1m_ai
-nodexo
-vocence_bt
-minotaursubnet
-somasubnet
-glyphresearch
-heydittoai
-sundaebar_ai
-cookingtao_
-swarmsubnet
+# SN73 — Unknown
 gittensor_io
+# SN84 — Unknown
+vidaio_
+# SN87 — Unknown
+Investing88ai
+# SN101 — Connito
+connitoai
+# SN102 — Djinn
+djinn_gg
+# SN104 — Unknown
+b1m_ai
+# SN105 — NexisGen
+nodexo
+# SN109 — Unknown
+vocence_bt
+# SN111 — Unknown
+minotaursubnet
+# SN113 — SOMA
+somasubnet
+# SN116 — Memo
+glyphresearch
+# SN117 — Ditto
+heydittoai
+# SN120 — Affine
+sundaebar_ai
+# SN121 — Sundae Bar
+cookingtao_
+# SN123 — Swarm
+swarmsubnet
