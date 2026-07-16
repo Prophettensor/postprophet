@@ -228,6 +228,7 @@ def capture_from_accounts():
                 "predicted_at": datetime.now(timezone.utc).isoformat(),
                 "timeframe_hours": TIMEFRAME_HOURS,
                 "target": dynamic_target,
+                "viral_target": int(baseline.get("median_impressions", 0) * 2),
                 "context": context,
                 "prediction": prediction,
                 "resolve_after": (
@@ -344,6 +345,7 @@ def capture_from_accounts():
             "predicted_at": datetime.now(timezone.utc).isoformat(),
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": dynamic_target,
+            "viral_target": int(baseline.get("median_impressions", 0) * 2),
             "context": context,
             "prediction": prediction,
             "resolve_after": (
@@ -583,7 +585,8 @@ Consider:
 
 Return JSON:
 {{
-  "probability": <float 0.0-1.0>,
+  "probability": <float 0.0-1.0 — chance of reaching {target} impressions (their p75)>,
+  "viral_probability": <float 0.0-1.0 — chance of reaching {viral_target} impressions (2x their median)>,
   "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
   "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
   "pattern_analysis": "<1-2 sentences. What specific pattern does the hit tweet use that this tweet should match? Identify: hook type (question, contrarian claim, announcement, data point), length (short/medium/long), structure, emotional trigger, presence of media or hashtags>",
@@ -601,6 +604,7 @@ Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
 Target: {target} impressions (their p75)
+Viral target: {viral_target} impressions (2x their median)
 Trending: {trending}"""
 
 
@@ -676,6 +680,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
 
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
+        viral_target=int(median_imp * 2) if median_imp else int(tgt * 2),
         timeframe=tf,
         text=context["text"],
         username=context["author"]["username"],
@@ -717,28 +722,41 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
 # ── Eval: Brier score ───────────────────────────────────────────────────
 
 
-def brier_score(predictions: list[dict]) -> float:
-    """Calculate Brier score for a batch of resolved predictions.
-
+def brier_score(predictions: list[dict]) -> dict:
+    """Calculate Brier scores for a batch of resolved predictions.
+    
+    Returns both p75 Brier and viral Brier (2x median).
+    
     Brier score = mean((predicted_probability - actual_outcome)^2)
     Lower is better. 0 = perfect, 1 = worst.
-
-    actual_outcome: 1.0 if impressions >= target, 0.0 if not.
     """
     if not predictions:
-        return 1.0
+        return {"p75": 1.0, "viral": 1.0}
 
-    total = 0.0
+    p75_total = 0.0
+    viral_total = 0.0
     count = 0
     for p in predictions:
         if p.get("resolved") is not True:
             continue
         prob = p["prediction"]["probability"]
         actual = 1.0 if p["actual_impressions"] >= p["target"] else 0.0
-        total += (prob - actual) ** 2
+        p75_total += (prob - actual) ** 2
+        
+        # Viral Brier (2x median target)
+        viral_prob = p["prediction"].get("viral_probability", 0.0)
+        viral_target = p.get("viral_target", int(p["context"].get("author_baseline", {}).get("median_impressions", 0) * 2))
+        viral_actual = 1.0 if p["actual_impressions"] >= viral_target else 0.0
+        viral_total += (viral_prob - viral_actual) ** 2
+        
         count += 1
 
-    return total / count if count > 0 else 1.0
+    if count == 0:
+        return {"p75": 1.0, "viral": 1.0}
+    return {
+        "p75": p75_total / count,
+        "viral": viral_total / count,
+    }
 
 
 # ── Harness: the main loop ──────────────────────────────────────────────
@@ -817,6 +835,7 @@ def capture_phase():
             "predicted_at": datetime.now(timezone.utc).isoformat(),
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": TARGET_IMPRESSIONS,
+            "viral_target": int(baseline.get("median_impressions", 0) * 2),
             "context": context,
             "prediction": prediction,
             "resolve_after": (
@@ -881,15 +900,17 @@ def resolve_phase():
         print(f"  No predictions ready to resolve. {unresolved} still pending.")
         return
 
-    # Calculate Brier score for this batch
-    score = brier_score(resolved_batch)
-    print(f"\n  Brier score: {score:.4f} (0=perfect, 1=worst)")
+    # Calculate Brier scores for this batch
+    scores = brier_score(resolved_batch)
+    print(f"\n  Brier score (p75):  {scores['p75']:.4f} (0=perfect, 1=worst)")
+    print(f"  Brier score (viral): {scores['viral']:.4f} (0=perfect, 1=worst)")
 
     # Save score record
     score_record = {
         "scored_at": now.isoformat(),
         "batch_size": len(resolved_batch),
-        "brier_score": score,
+        "brier_p75": scores["p75"],
+        "brier_viral": scores["viral"],
         "model": OPENAI_MODEL,
         "timeframe_hours": TIMEFRAME_HOURS,
         "target": TARGET_IMPRESSIONS,
@@ -902,7 +923,7 @@ def resolve_phase():
             f.write(json.dumps(p) + "\n")
 
     print(f"  Resolved {len(resolved_batch)} predictions. Score saved.")
-    return score
+    return scores
 
 
 def report_phase():
@@ -918,24 +939,25 @@ def report_phase():
     with open(SCORES_FILE) as f:
         scores = [json.loads(line) for line in f if line.strip()]
 
-    print(f"  {'Date':<24} {'Model':<20} {'Brier':<8} {'Batch':<6}")
-    print(f"  {'-' * 60}")
+    print(f"  {'Date':<24} {'Model':<20} {'p75':<8} {'viral':<8} {'Batch':<6}")
+    print(f"  {'-' * 70}")
     for s in scores:
         date = s["scored_at"][:19]
         model = s["model"][:18]
-        brier = s["brier_score"]
+        brier_p75 = s.get("brier_p75", s.get("brier_score", 1.0))
+        brier_viral = s.get("brier_viral", 1.0)
         batch = s["batch_size"]
-        print(f"  {date:<24} {model:<20} {brier:<8.4f} {batch:<6}")
+        print(f"  {date:<24} {model:<20} {brier_p75:<8.4f} {brier_viral:<8.4f} {batch:<6}")
 
     # Overall stats
-    all_briers = [s["brier_score"] for s in scores]
-    avg = sum(all_briers) / len(all_briers)
-    best = min(all_briers)
-    worst = max(all_briers)
+    all_p75 = [s.get("brier_p75", s.get("brier_score", 1.0)) for s in scores]
+    all_viral = [s.get("brier_viral", 1.0) for s in scores]
+    avg_p75 = sum(all_p75) / len(all_p75)
+    avg_viral = sum(all_viral) / len(all_viral)
     total_preds = sum(s["batch_size"] for s in scores)
-    print(f"\n  Overall average Brier: {avg:.4f}")
-    print(f"  Best Brier:  {best:.4f}")
-    print(f"  Worst Brier: {worst:.4f}")
+    print(f"\n  Average Brier (p75):   {avg_p75:.4f}")
+    print(f"  Average Brier (viral): {avg_viral:.4f}")
+    print(f"  Best Brier (p75):      {min(all_p75):.4f}")
     print(f"  Total batches: {len(scores)}")
     print(f"  Total predictions: {total_preds}")
 
