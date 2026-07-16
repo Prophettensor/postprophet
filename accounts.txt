@@ -1,13 +1,7 @@
 # PostProphet — Tracked Accounts
 # One X handle per line (without @). Lines starting with # are comments.
-# Active Bittensor ecosystem accounts (posted within 7 days, 50+ followers).
+# Bittensor subnet accounts only (posted within 7 days, 50+ followers).
 # Source: taoflute.com subnet data + X API verification.
-
-# Bittensor core
-opentensor
-bittensor
-taostats
-gittensor_io
 
 # Subnet teams
 chutes_ai
@@ -50,6 +44,4 @@ heydittoai
 sundaebar_ai
 cookingtao_
 swarmsubnet
-
-# Notable Bittensor voices
-bittingthembits
+gittensor_io
