@@ -1014,7 +1014,6 @@ def predict_tweet(
         {probability, reasoning, suggestions, context_summary}
     """
     client = OpenAI(api_key=OPENAI_API_KEY)
-    tgt = target or TARGET_IMPRESSIONS
     tf = timeframe_hours or TIMEFRAME_HOURS
     post_time = planned_post_time or datetime.now(timezone.utc).isoformat()
 
@@ -1059,6 +1058,7 @@ def predict_tweet(
 
                 # Cache for future calls
                 cache_author(author_username, user_data, baseline, recent_samples)
+                has_x_data = True
 
             except Exception as e:
                 print(f"  (X API unavailable: {e}. Using LLM-only mode.)")
@@ -1068,6 +1068,12 @@ def predict_tweet(
             trending = get_trending_topics()
         except Exception:
             pass
+
+    # Use author's p75 as target if no explicit target given
+    if target is None and baseline.get("p75_impressions"):
+        tgt = int(baseline["p75_impressions"])
+    else:
+        tgt = target or TARGET_IMPRESSIONS
 
     context = {
         "text": text,
