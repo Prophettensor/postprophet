@@ -395,18 +395,28 @@ def get_trending_topics():
 
 
 def get_author_recent_tweets(author_id, max_results=10):
-    """Fetch an author's recent tweets to compute engagement baseline."""
+    """Fetch an author's recent tweets to compute engagement baseline.
+    Filters out self-replies (thread continuations) which get artificially
+    low impressions — the API's exclude=replies does NOT filter self-replies."""
     url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
     params = {
         "max_results": max(10, min(max_results, 100)),
-        "tweet.fields": "public_metrics,created_at",
+        "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets",
         "exclude": "retweets,replies",
     }
     resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
     if resp.status_code != 200:
         return []
     data = resp.json()
-    return data.get("data", [])
+    tweets = data.get("data", [])
+    # Filter out self-replies (thread tails)
+    return [
+        t for t in tweets
+        if not (
+            t.get("in_reply_to_user_id")
+            and str(t.get("in_reply_to_user_id")) == str(author_id)
+        )
+    ]
 
 
 def compute_author_baseline(recent_tweets: list) -> dict:
