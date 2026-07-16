@@ -1001,10 +1001,24 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
             eng_str = ", ".join(eng) if eng else "no engagement"
             eco_lines.append(f"    @{rp['handle']} ({age_str}, {eng_str}): \"{rp['text']}\"")
             # Show tracked replies (from our accounts only — high signal)
+            # Enrich with the replier's own cached metrics so the model knows
+            # not just who replied, but how much reach that account has
             for tr in rp.get("tracked_replies", [])[:3]:
-                eco_lines.append(f"      ↳ @{tr['handle']} ({tr['followers']:,} followers) replied: \"{tr['text'][:60]}\"")
+                reply_cache = get_cached_author(tr["handle"])
+                if reply_cache:
+                    reply_median = reply_cache.get("baseline", {}).get("median_impressions", 0)
+                    reply_followers = reply_cache.get("followers", 0)
+                    eco_lines.append(f"      ↳ @{tr['handle']} ({reply_followers:,} followers, median {reply_median:.0f} imp/tweet) replied: \"{tr['text'][:60]}\"")
+                else:
+                    eco_lines.append(f"      ↳ @{tr['handle']} ({tr['followers']:,} followers) replied: \"{tr['text'][:60]}\"")
             for tq in rp.get("tracked_quotes", [])[:2]:
-                eco_lines.append(f"      ↳ @{tq['handle']} ({tq['followers']:,} followers) quoted: \"{tq['text'][:60]}\"")
+                quote_cache = get_cached_author(tq["handle"])
+                if quote_cache:
+                    quote_median = quote_cache.get("baseline", {}).get("median_impressions", 0)
+                    quote_followers = quote_cache.get("followers", 0)
+                    eco_lines.append(f"      ↳ @{tq['handle']} ({quote_followers:,} followers, median {quote_median:.0f} imp/tweet) quoted: \"{tq['text'][:60]}\"")
+                else:
+                    eco_lines.append(f"      ↳ @{tq['handle']} ({tq['followers']:,} followers) quoted: \"{tq['text'][:60]}\"")
         ecosystem_str = "\n".join(eco_lines)
         eco_accounts = eco.get("account_count", 0)
     else:
