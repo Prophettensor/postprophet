@@ -22,11 +22,10 @@ python postprophet.py run
                 - Author stats (followers, following, tweet count)
                 - Author baseline (avg impressions, avg likes, avg retweets from recent tweets)
                 - Author's top 3 recent tweets (text + impressions)
-                - Early engagement signals (likes, retweets, replies at capture time)
                 - Trending topics
                 - When it was posted (or will be posted)
 2. predict  — LLM predicts probability of hitting target impressions within timeframe
-3. wait     — timeframe hours pass (default 1h)
+3. wait     — timeframe hours pass (default 24h)
 4. resolve  — check actual impressions via X API
 5. score    — Brier score measures prediction accuracy
 6. report   — track accuracy over time
@@ -84,7 +83,7 @@ For faster iteration, the timeframe can be reduced — at 3 hours, roughly 80% o
 - **Recent top tweets** — the author's 3 best-performing recent tweets (text + impressions) give the harness a sense of what works for this account.
 - **Time of day** — when the tweet was (or will be) posted. A tweet at 3am hits differently than 9am.
 - **Trending topics** — what's hot right now and whether the tweet relates.
-- **Early engagement** — in eval mode, likes/retweets/replies at capture time.
+- **Author baseline** — not just follower count, but average impressions per tweet. An account with 1k followers that averages 5k impressions is very different from one that averages 200.
 - **Planned post time** — in product mode, when the tweet will go live.
 
 ## Architecture

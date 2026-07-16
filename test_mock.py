@@ -1,5 +1,5 @@
 """
-PostProphet — Mock test for the prediction engine.
+PostProphet — Mock test for the prediction harness.
 
 Tests the full loop (capture → predict → resolve → score) with fake tweet data.
 No API keys needed. Proves the harness works end-to-end.
@@ -71,7 +71,7 @@ MOCK_RECENT_TWEETS = {
     "a1": [
         {"text": "building in public day 46 — the eval framework is taking shape...", "impressions": 9200, "likes": 55, "retweets": 14},
         {"text": "if you can't measure it, you can't improve it. here's why →", "impressions": 7100, "likes": 42, "retweets": 10},
-        {"text": "just had a breakthrough on the prediction engine. brier score improving.", "impressions": 6500, "likes": 38, "retweets": 8},
+        {"text": "just had a breakthrough on the prediction harness. brier score improving.", "impressions": 6500, "likes": 38, "retweets": 8},
     ],
     "a2": [
         {"text": "stop selling courses. start selling agents. here's the math →", "impressions": 42000, "likes": 310, "retweets": 78},
@@ -162,7 +162,7 @@ def run_mock_test():
         print(f"    Baseline: avg {baseline['avg_impressions']:,} imp/tweet")
         print(f"    Tweet: {context['text'][:90]}...")
 
-        # Call the actual prediction engine
+        # Call the actual prediction harness
         try:
             prediction = predict(context, target=TARGET, timeframe=TIMEFRAME)
         except Exception as e:
