@@ -63,18 +63,28 @@ def get_tweet_impressions(tweet_id):
 
 def get_author_latest_tweet(author_id, max_results=10):
     """Fetch an author's most recent original tweets (not reply/retweet).
-    Returns up to max_results tweets, newest first."""
+    Returns up to max_results tweets, newest first. Includes media + engagement context."""
     url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
     params = {
         "max_results": max(10, min(max_results, 100)),
-        "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets",
+        "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets,attachments,entities",
         "exclude": "retweets,replies",
+        "expansions": "attachments.media_keys",
+        "media.fields": "type,url,preview_image_url",
     }
     resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
     if resp.status_code != 200:
         return None
     data = resp.json()
     tweets = data.get("data", [])
+    media_map = {m["media_key"]: m for m in data.get("includes", {}).get("media", [])}
+    
+    # Attach media info to each tweet
+    for tweet in tweets:
+        attachments = tweet.get("attachments", {})
+        media_keys = attachments.get("media_keys", []) if attachments else []
+        tweet["_media"] = [media_map[k] for k in media_keys if k in media_map]
+    
     return tweets if tweets else None
 
 
@@ -226,6 +236,8 @@ def capture_from_accounts():
 
         # Store context for pass 2
         tweet_metrics = latest.get("public_metrics", {})
+        media_info = analyze_media(latest) if latest.get("_media") else {"has_media": False, "media_types": [], "descriptions": []}
+        engagement = get_engagement_context(latest)
         context = {
             "tweet_id": latest["id"],
             "text": latest.get("text", ""),
@@ -241,6 +253,8 @@ def capture_from_accounts():
             "author_baseline": baseline,
             "author_recent_top_tweets": recent_samples,
             "author_all_tweets": all_tweet_samples,
+            "media": media_info,
+            "engagement": engagement,
             "tweet_metrics_at_capture": {
                 "likes": tweet_metrics.get("like_count", 0),
                 "retweets": tweet_metrics.get("retweet_count", 0),
@@ -317,18 +331,26 @@ def get_trending_topics():
 def get_author_recent_tweets(author_id, max_results=10):
     """Fetch an author's recent tweets to compute engagement baseline.
     Filters out self-replies (thread continuations) which get artificially
-    low impressions — the API's exclude=replies does NOT filter self-replies."""
+    low impressions — the API's exclude=replies does NOT filter self-replies.
+    Includes media data for each tweet."""
     url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
     params = {
         "max_results": max(10, min(max_results, 100)),
-        "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets",
+        "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets,attachments,entities",
         "exclude": "retweets,replies",
+        "expansions": "attachments.media_keys",
+        "media.fields": "type,url,preview_image_url",
     }
     resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
     if resp.status_code != 200:
         return []
     data = resp.json()
     tweets = data.get("data", [])
+    media_map = {m["media_key"]: m for m in data.get("includes", {}).get("media", [])}
+    for tweet in tweets:
+        attachments = tweet.get("attachments", {})
+        media_keys = attachments.get("media_keys", []) if attachments else []
+        tweet["_media"] = [media_map[k] for k in media_keys if k in media_map]
     # Filter out self-replies (thread tails)
     return [
         t for t in tweets
@@ -367,7 +389,93 @@ def compute_author_baseline(recent_tweets: list) -> dict:
     }
 
 
-# ── Ecosystem baseline ─────────────────────────────────────────────────
+# ── Media analysis ──────────────────────────────────────────────────────
+
+
+def analyze_media(tweet: dict) -> dict:
+    """Analyze media attached to a tweet.
+    Returns {has_media, media_types, descriptions} — uses gpt-4o-mini vision
+    to describe images so the model can assess media quality/relevance."""
+    media_list = tweet.get("_media", [])
+    if not media_list:
+        return {"has_media": False, "media_types": [], "descriptions": []}
+    
+    media_types = [m.get("type", "unknown") for m in media_list]
+    descriptions = []
+    
+    client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+    
+    for m in media_list:
+        mtype = m.get("type", "unknown")
+        if mtype in ("photo", "animated_gif"):
+            url = m.get("url") or m.get("preview_image_url")
+            if url and client:
+                try:
+                    resp = client.chat.completions.create(
+                        model=OPENAI_MODEL,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": "Describe this image in one sentence. Is it: a chart/graph, screenshot, photo, meme, infographic, or graphic? Does it look professional or amateur? Is it relevant to a tweet about crypto/AI?"},
+                                    {"type": "image_url", "image_url": {"url": url}},
+                                ],
+                            }
+                        ],
+                        max_tokens=80,
+                        temperature=0.2,
+                    )
+                    descriptions.append(resp.choices[0].message.content.strip())
+                except Exception:
+                    descriptions.append(f"{mtype} (analysis failed)")
+            else:
+                descriptions.append(f"{mtype} (no URL)")
+        elif mtype == "video":
+            descriptions.append("video (not analyzed)")
+        else:
+            descriptions.append(f"{mtype}")
+    
+    return {"has_media": True, "media_types": media_types, "descriptions": descriptions}
+
+
+def get_engagement_context(tweet: dict) -> dict:
+    """Extract engagement signals from a tweet's public metrics and context.
+    Returns info about replies, quotes, and conversation activity — these
+    signal who's engaging and whether the conversation is high-quality."""
+    metrics = tweet.get("public_metrics", {})
+    
+    reply_count = metrics.get("reply_count", 0)
+    quote_count = metrics.get("quote_count", 0)
+    bookmark_count = metrics.get("bookmark_count", 0)
+    
+    # Check if this tweet quotes another (referenced_tweets with type 'quoted')
+    refs = tweet.get("referenced_tweets", [])
+    quoted_tweet = next((r for r in refs if r.get("type") == "quoted"), None)
+    
+    return {
+        "reply_count": reply_count,
+        "quote_count": quote_count,
+        "bookmark_count": bookmark_count,
+        "is_quote_tweet": quoted_tweet is not None,
+        "quoted_tweet_id": quoted_tweet.get("id") if quoted_tweet else None,
+        "engagement_summary": _summarize_engagement(reply_count, quote_count, bookmark_count),
+    }
+
+
+def _summarize_engagement(replies: int, quotes: int, bookmarks: int) -> str:
+    """Human-readable engagement summary for the prompt."""
+    parts = []
+    if replies > 0:
+        parts.append(f"{replies} replies")
+    if quotes > 0:
+        parts.append(f"{quotes} quotes")
+    if bookmarks > 0:
+        parts.append(f"{bookmarks} bookmarks")
+    if not parts:
+        return "no engagement yet"
+    return ", ".join(parts)
+
+
 
 
 def compute_ecosystem_baseline(all_author_data: list) -> dict:
@@ -643,6 +751,8 @@ Author's recent tweets ranked by impressions (best to worst):
 {all_tweets}
 Ecosystem context (across {eco_accounts} Bittensor subnet accounts):
 {ecosystem}
+Media: {media}
+Engagement signals: {engagement}
 Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
@@ -742,6 +852,34 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         ecosystem_str = "  (no ecosystem data)"
         eco_accounts = 0
 
+    # Format media context
+    media_info = context.get("media", {})
+    if media_info.get("has_media"):
+        media_types = media_info.get("media_types", [])
+        descriptions = media_info.get("descriptions", [])
+        media_parts = []
+        for i, (mt, desc) in enumerate(zip(media_types, descriptions)):
+            media_parts.append(f"  {mt}: {desc}")
+        media_str = "\n".join(media_parts) if media_parts else "  (has media, no details)"
+    else:
+        media_str = "  no media attached"
+
+    # Format engagement context
+    engagement = context.get("engagement", {})
+    if engagement:
+        eng_parts = []
+        if engagement.get("reply_count", 0) > 0:
+            eng_parts.append(f"{engagement['reply_count']} replies")
+        if engagement.get("quote_count", 0) > 0:
+            eng_parts.append(f"{engagement['quote_count']} quotes")
+        if engagement.get("bookmark_count", 0) > 0:
+            eng_parts.append(f"{engagement['bookmark_count']} bookmarks")
+        if engagement.get("is_quote_tweet"):
+            eng_parts.append("this is a quote tweet")
+        engagement_str = ", ".join(eng_parts) if eng_parts else "no engagement yet"
+    else:
+        engagement_str = "no engagement data"
+
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
         timeframe=tf,
@@ -756,6 +894,8 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         all_tweets=all_tweets_str,
         eco_accounts=eco_accounts,
         ecosystem=ecosystem_str,
+        media=media_str,
+        engagement=engagement_str,
         posted_at=posted_at_str,
         elapsed=elapsed_str,
         trending=", ".join(context.get("trending_topics", [])) or "none available",
