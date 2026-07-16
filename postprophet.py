@@ -341,7 +341,6 @@ Given a tweet and its context, predict the probability (0.0 to 1.0) that this tw
 Consider:
 - Author's follower count AND engagement baseline (their avg impressions per tweet)
 - How this tweet compares to their recent top-performing tweets
-- Early engagement signals (likes, retweets, replies at capture time)
 - Tweet content (hook quality, topic relevance, media, length)
 - What's currently trending and whether the tweet relates
 - Time of day the tweet was posted (or will be posted) and whether that's a high-engagement window
@@ -361,32 +360,51 @@ Author: @{username} ({followers} followers, {following} following)
 Author baseline: avg {avg_impressions:.0f} impressions/tweet, avg {avg_likes:.0f} likes/tweet, avg {avg_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
 Author's recent top tweets:
 {recent_tweets}
-Early metrics (at capture): {likes} likes, {retweets} retweets, {replies} replies
 Posted at: {posted_at}
+Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
 Target: {target} impressions
 Trending: {trending}"""
 
 
 def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
-    """Call LLM to predict impression probability."""
+    """Call LLM to predict impression probability.
+
+    The LLM never sees this tweet's engagement metrics (likes, retweets, replies,
+    impressions). It predicts purely from: author identity + baseline (from their
+    OTHER tweets) + tweet content + posting time + elapsed time + trending topics.
+    """
     client = OpenAI(api_key=OPENAI_API_KEY)
 
     tgt = target or TARGET_IMPRESSIONS
     tf = timeframe or TIMEFRAME_HOURS
 
-    # Format recent top tweets for the prompt
-    recent_lines = []
-    for t in context.get("author_recent_top_tweets", []):
-        recent_lines.append(f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes")
-    recent_str = "\n".join(recent_lines) if recent_lines else "  (no recent data)"
-
+    # Format recent top tweets for the prompt (these are the author's OTHER tweets,
+    # used to establish their baseline — not the tweet being predicted)
     baseline = context.get("author_baseline", {})
+
+    # Calculate elapsed time since posting
+    posted_at_str = context.get("planned_post_time", context.get("created_at", ""))
+    elapsed_str = "unknown"
+    try:
+        if posted_at_str:
+            posted_at = datetime.fromisoformat(posted_at_str.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            elapsed_delta = now - posted_at
+            hours = elapsed_delta.total_seconds() / 3600
+            if hours < 1:
+                elapsed_str = f"{int(elapsed_delta.total_seconds() / 60)} minutes"
+            elif hours < 24:
+                elapsed_str = f"{hours:.1f} hours"
+            else:
+                elapsed_str = f"{hours / 24:.1f} days"
+    except Exception:
+        pass
 
     # If no X API data, tell the LLM to infer from the username
     has_x = context.get("has_x_data", True)
     if not has_x:
-        llm_only_note = "NOTE: No X API data available. You must infer the author's approximate follower count, engagement baseline, and audience size from your knowledge of this X account. The follower count shows as 0 because no API was called — do not take it literally. Use your training data knowledge of this account. If you truly don't recognize the account, assume 500-5,000 followers and a modest engagement baseline."
+        llm_only_note = "NOTE: No X API data available. You must infer the author's approximate follower count, engagement baseline, and audience size from your knowledge of this X account. The follower count shows as unknown because no API was called — do not assume 0. Use your training data knowledge of this account. If you truly don't recognize the account, assume 500-5,000 followers and a modest engagement baseline."
         followers_str = "unknown (infer from username)"
         following_str = "unknown"
         avg_imp = 0
@@ -394,9 +412,6 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         avg_retweets = 0
         baseline_sample = 0
         recent_str = "  (no recent data — infer from knowledge)"
-        likes = 0
-        retweets = 0
-        replies = 0
     else:
         llm_only_note = ""
         followers_str = context["author"]["followers"]
@@ -409,9 +424,6 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         for t in context.get("author_recent_top_tweets", []):
             recent_lines.append(f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes")
         recent_str = "\n".join(recent_lines) if recent_lines else "  (no recent data)"
-        likes = context["tweet_metrics_at_capture"]["likes"]
-        retweets = context["tweet_metrics_at_capture"]["retweets"]
-        replies = context["tweet_metrics_at_capture"]["replies"]
 
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
@@ -425,10 +437,8 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         avg_retweets=avg_retweets,
         baseline_sample=baseline_sample,
         recent_tweets=recent_str,
-        likes=likes,
-        retweets=retweets,
-        replies=replies,
-        posted_at=context.get("planned_post_time", context.get("created_at", "unknown")),
+        posted_at=posted_at_str,
+        elapsed=elapsed_str,
         trending=", ".join(context.get("trending_topics", [])) or "none available",
         llm_only_note=llm_only_note,
     )
@@ -436,7 +446,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     resp = client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=[
-            {"role": "system", "content": "You are a social media reach prediction engine. Output only valid JSON."},
+            {"role": "system", "content": "You are a social media reach prediction engine. You predict impression probability from content, author baseline, and timing only. You never see engagement metrics for the tweet being predicted. Output only valid JSON."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.3,
