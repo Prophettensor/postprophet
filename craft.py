@@ -106,6 +106,7 @@ Current tweet:
 
 PostProphet feedback (expert editorial guidance):
 - Probability of reaching 2x median: {feedback['probability']:.0%}
+- Scores: hook {feedback.get('hook_strength', 0)}/10 | specificity {feedback.get('specificity', 0)}/10 | emotional trigger {feedback.get('emotional_trigger', 0)}/10
 - Reasoning: {feedback['reasoning']}
 - Pattern analysis: {pattern}
 - Suggestion: {feedback['suggestions']}
@@ -189,10 +190,14 @@ def main():
         )
         
         prob = result.get("probability", 0)
+        hook = result.get("hook_strength", 0)
+        spec = result.get("specificity", 0)
+        emotion = result.get("emotional_trigger", 0)
         reasoning = result.get("reasoning", "")
         suggestions = result.get("suggestions", "")
         pattern = result.get("pattern_analysis", "")
         
+        print(f"  Scores: hook {hook}/10 | spec {spec}/10 | emotion {emotion}/10")
         print(f"  Probability: {prob:.0%}")
         print(f"  Reasoning: {reasoning}")
         if pattern:
@@ -204,6 +209,9 @@ def main():
         # Prepare feedback for next iteration
         feedback = {
             "probability": prob,
+            "hook_strength": hook,
+            "specificity": spec,
+            "emotional_trigger": emotion,
             "reasoning": reasoning,
             "suggestions": suggestions,
             "pattern_analysis": pattern,

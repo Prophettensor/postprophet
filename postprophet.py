@@ -564,24 +564,37 @@ Given a tweet and its context, predict the probability (0.0 to 1.0) that this tw
 
 The target is 2x the author's median impressions — meaning it needs to perform twice as well as their typical tweet. You're predicting whether this is a standout tweet for this author.
 
-Consider:
-- Author's follower count AND engagement baseline (their median impressions per tweet)
-- How this tweet compares to their best-performing tweet (does it have similar hooks, topics, or formats?)
-- How this tweet compares to their worst-performing tweet (does it share patterns with their flops?)
-- Tweet content (hook quality, topic relevance, media, length)
+STEP 1 — Score the tweet vs their best tweet on 3 dimensions (0-10 each):
+- hook_strength: Does it open with something that stops the scroll? Compare to their best tweet's opening. A bold claim, surprising data, or personal announcement = high. Vague statements or "the future is here" = low.
+- specificity: Does it say something concrete? Named products, numbers, specific events = high. General statements about "innovation" or "decentralization" = low.
+- emotional_trigger: Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low.
+
+A tweet scoring below 6 on ANY dimension is unlikely to hit 2x median. Be honest — most tweets are mediocre.
+
+STEP 2 — Convert scores to probability. As a rough guide:
+- All three scores 8+: 70-85%
+- Two scores 7+, one weak: 40-60%
+- One score 7+, two weak: 20-35%
+- All scores below 6: 5-20%
+
+Also consider:
+- Author's follower count AND engagement baseline
 - What's currently trending and whether the tweet relates
-- Time of day the tweet was posted and whether that's a high-engagement window
+- Time of day and whether that's a high-engagement window
 - Time elapsed since posting (older tweets have less room to grow)
 
 {llm_only_note}
 
 Return JSON:
 {{
+  "hook_strength": <0-10>,
+  "specificity": <0-10>,
+  "emotional_trigger": <0-10>,
   "probability": <float 0.0-1.0>,
   "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
   "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
-  "pattern_analysis": "<1-2 sentences. What specific pattern does their best tweet use that this tweet should match? Identify: hook type (question, contrarian claim, announcement, data point), length (short/medium/long), structure, emotional trigger, presence of media or hashtags>",
-  "suggestions": "<1-2 sentences. Give CONCRETE, actionable editorial feedback. Not 'add a trending topic' but 'Open with a bold claim under 15 words, drop all hashtags, match the structure of their best tweet.'>"
+  "pattern_analysis": "<1-2 sentences. What specific pattern does their best tweet use that this tweet should match?>",
+  "suggestions": "<1-2 sentences. CONCRETE editorial feedback.>"
 }}
 
 Tweet: {text}
