@@ -195,7 +195,7 @@ def capture_from_accounts():
                 "context": context,
                 "prediction": prediction,
                 "resolve_after": (
-                    datetime.now(timezone.utc) + timedelta(hours=TIMEFRAME_HOURS)
+                    datetime.fromisoformat(context["created_at"].replace("Z", "+00:00")) + timedelta(hours=TIMEFRAME_HOURS)
                 ).isoformat(),
                 "resolved": False,
                 "actual_impressions": None,
@@ -324,7 +324,7 @@ def capture_from_accounts():
             "context": context,
             "prediction": prediction,
             "resolve_after": (
-                datetime.now(timezone.utc) + timedelta(hours=TIMEFRAME_HOURS)
+                datetime.fromisoformat(context["created_at"].replace("Z", "+00:00")) + timedelta(hours=TIMEFRAME_HOURS)
             ).isoformat(),
             "resolved": False,
             "actual_impressions": None,
@@ -750,7 +750,7 @@ def capture_phase():
             "context": context,
             "prediction": prediction,
             "resolve_after": (
-                datetime.now(timezone.utc) + timedelta(hours=TIMEFRAME_HOURS)
+                datetime.fromisoformat(context["created_at"].replace("Z", "+00:00")) + timedelta(hours=TIMEFRAME_HOURS)
             ).isoformat(),
             "resolved": False,
             "actual_impressions": None,
