@@ -105,6 +105,7 @@ Current tweet:
 
 PostProphet feedback (treat this as expert editorial guidance from a managing editor):
 - Probability of beating their p75: {feedback['probability']:.0%}
+- Probability of going viral (2x median): {feedback.get('viral_probability', 0):.0%}
 - Reasoning: {feedback['reasoning']}
 - Pattern analysis: {pattern}
 - Suggestion: {feedback['suggestions']}
@@ -186,11 +187,12 @@ def main():
         )
         
         prob = result.get("probability", 0)
+        viral_prob = result.get("viral_probability", 0)
         reasoning = result.get("reasoning", "")
         suggestions = result.get("suggestions", "")
         pattern = result.get("pattern_analysis", "")
         
-        print(f"  Probability: {prob:.0%}")
+        print(f"  Probability: {prob:.0%} (p75) | {viral_prob:.0%} (viral)")
         print(f"  Reasoning: {reasoning}")
         if pattern:
             print(f"  Pattern: {pattern}")
@@ -201,6 +203,7 @@ def main():
         # Prepare feedback for next iteration
         feedback = {
             "probability": prob,
+            "viral_probability": viral_prob,
             "reasoning": reasoning,
             "suggestions": suggestions,
             "pattern_analysis": pattern,
