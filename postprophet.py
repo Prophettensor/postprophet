@@ -25,6 +25,9 @@ BATCH_SIZE = int(os.environ.get("POSTPROPHET_BATCH", "20"))
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 PREDICTIONS_FILE = os.path.join(DATA_DIR, "predictions.jsonl")
 SCORES_FILE = os.path.join(DATA_DIR, "scores.jsonl")
+AUTHOR_CACHE_FILE = os.path.join(DATA_DIR, "author_cache.json")
+
+CACHE_TTL_HOURS = 6
 
 # ── X API helpers ───────────────────────────────────────────────────────
 
@@ -116,6 +119,99 @@ def capture_from_accounts():
     for i, handle in enumerate(handles, 1):
         print(f"  [{i}/{len(handles)}] @{handle}...")
 
+        # Check cache first — skip X API calls if fresh
+        cached = get_cached_author(handle)
+        if cached:
+            print(f"    (cached)")
+            followers = cached["followers"]
+            if followers == 0:
+                print(f"    ⚠️  0 followers — skipping")
+                continue
+
+            baseline = cached["baseline"]
+            avg_imp = baseline.get("avg_impressions", 0)
+            if avg_imp == 0:
+                print(f"    ⚠️  No baseline data — skipping")
+                continue
+
+            dynamic_target = int(avg_imp * 1.2)
+            print(f"    {followers:,} followers | avg {avg_imp:.0f} imp/tweet | target: {dynamic_target:,}")
+
+            user_id = cached["user_id"]
+
+            # Still need to fetch latest tweet (not cached — changes every run)
+            latest = get_author_latest_tweet(user_id)
+            if not latest:
+                print(f"    ⚠️  No recent tweets — skipping")
+                continue
+
+            existing = load_predictions()
+            already_predicted = any(p["tweet_id"] == latest["id"] for p in existing)
+            if already_predicted:
+                print(f"    ⏭️  Already predicted this tweet — skipping")
+                continue
+
+            # Use cached best/worst samples
+            recent_samples = cached["recent_samples"]
+
+            tweet_metrics = latest.get("public_metrics", {})
+            context = {
+                "tweet_id": latest["id"],
+                "text": latest.get("text", ""),
+                "created_at": latest.get("created_at", ""),
+                "planned_post_time": latest.get("created_at", ""),
+                "platform": "x",
+                "author": {
+                    "username": handle,
+                    "followers": followers,
+                    "following": cached["following"],
+                    "tweet_count": cached["tweet_count"],
+                },
+                "author_baseline": baseline,
+                "author_recent_top_tweets": recent_samples,
+                "tweet_metrics_at_capture": {
+                    "likes": tweet_metrics.get("like_count", 0),
+                    "retweets": tweet_metrics.get("retweet_count", 0),
+                    "replies": tweet_metrics.get("reply_count", 0),
+                    "quotes": tweet_metrics.get("quote_count", 0),
+                },
+                "trending_topics": trending,
+                "has_x_data": True,
+            }
+
+            print(f"    Tweet: {context['text'][:80]}...")
+
+            try:
+                prediction = predict(context, target=dynamic_target, timeframe=TIMEFRAME_HOURS)
+            except Exception as e:
+                print(f"    ❌ Prediction error: {e}")
+                continue
+
+            record = {
+                "tweet_id": context["tweet_id"],
+                "predicted_at": datetime.now(timezone.utc).isoformat(),
+                "timeframe_hours": TIMEFRAME_HOURS,
+                "target": dynamic_target,
+                "context": context,
+                "prediction": prediction,
+                "resolve_after": (
+                    datetime.now(timezone.utc) + timedelta(hours=TIMEFRAME_HOURS)
+                ).isoformat(),
+                "resolved": False,
+                "actual_impressions": None,
+            }
+
+            save_prediction(record)
+            predictions.append(record)
+
+            prob = prediction.get("probability", 0.5)
+            reasoning = prediction.get("reasoning", "")[:100]
+            print(f"    → {prob:.0%} | target {dynamic_target:,} | {reasoning}")
+            print()
+            continue
+
+        # ── Cold path: fetch from X API ──────────────────────────────
+
         # Look up user
         user = get_user_by_username(handle)
         if not user:
@@ -181,6 +277,9 @@ def capture_from_accounts():
                 "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
                 "tier": "worst",
             })
+
+        # Cache this author's data for future runs
+        cache_author(handle, user, baseline, recent_samples)
 
         # Build context
         tweet_metrics = latest.get("public_metrics", {})
@@ -254,7 +353,7 @@ def get_trending_topics():
     return [t["name"] for t in trends[:10]]
 
 
-def get_author_recent_tweets(author_id, max_results=20):
+def get_author_recent_tweets(author_id, max_results=10):
     """Fetch an author's recent tweets to compute engagement baseline."""
     url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
     params = {
@@ -289,6 +388,55 @@ def compute_author_baseline(recent_tweets: list) -> dict:
     }
 
 
+# ── Author baseline cache ──────────────────────────────────────────────
+
+
+def load_author_cache() -> dict:
+    """Load the author cache. Returns {handle: {cached_at, data...}}."""
+    if not os.path.exists(AUTHOR_CACHE_FILE):
+        return {}
+    try:
+        with open(AUTHOR_CACHE_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_author_cache(cache: dict):
+    """Persist the author cache to disk."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(AUTHOR_CACHE_FILE, "w") as f:
+        json.dump(cache, f)
+
+
+def get_cached_author(handle: str) -> dict | None:
+    """Return cached author data if fresh (< CACHE_TTL_HOURS old), else None."""
+    cache = load_author_cache()
+    entry = cache.get(handle)
+    if not entry:
+        return None
+    cached_at = datetime.fromisoformat(entry["cached_at"])
+    age = datetime.now(timezone.utc) - cached_at
+    if age > timedelta(hours=CACHE_TTL_HOURS):
+        return None
+    return entry
+
+
+def cache_author(handle: str, user_data: dict, baseline: dict, recent_samples: list):
+    """Store author data in the cache with a timestamp."""
+    cache = load_author_cache()
+    cache[handle] = {
+        "cached_at": datetime.now(timezone.utc).isoformat(),
+        "user_id": user_data.get("id", ""),
+        "followers": user_data.get("public_metrics", {}).get("followers_count", 0),
+        "following": user_data.get("public_metrics", {}).get("following_count", 0),
+        "tweet_count": user_data.get("public_metrics", {}).get("tweet_count", 0),
+        "baseline": baseline,
+        "recent_samples": recent_samples,
+    }
+    save_author_cache(cache)
+
+
 # ── Context gathering ────────────────────────────────────────────────────
 
 
@@ -299,25 +447,33 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
     author_metrics = author.get("public_metrics", {})
     tweet_metrics = tweet_data.get("public_metrics", {})
     author_id = tweet_data.get("author_id", "")
+    handle = author.get("username", "")
 
-    # Compute engagement baseline from recent tweets
+    # Compute engagement baseline from recent tweets (with cache)
     baseline = {"avg_impressions": 0, "avg_likes": 0, "avg_retweets": 0, "sample_size": 0}
     recent_samples = []
-    if fetch_baseline and author_id:
-        try:
-            recent = get_author_recent_tweets(author_id)
-            baseline = compute_author_baseline(recent)
-            # Keep top 3 recent tweets for context (text + impressions)
-            recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
-            for t in recent_sorted[:3]:
-                recent_samples.append({
-                    "text": t.get("text", "")[:100],
-                    "impressions": t.get("public_metrics", {}).get("impression_count", 0),
-                    "likes": t.get("public_metrics", {}).get("like_count", 0),
-                    "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
-                })
-        except Exception:
-            pass
+    if fetch_baseline and handle:
+        cached = get_cached_author(handle)
+        if cached:
+            baseline = cached["baseline"]
+            recent_samples = cached["recent_samples"]
+        elif author_id:
+            try:
+                recent = get_author_recent_tweets(author_id)
+                baseline = compute_author_baseline(recent)
+                recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+                for t in recent_sorted[:3]:
+                    recent_samples.append({
+                        "text": t.get("text", "")[:100],
+                        "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                        "likes": t.get("public_metrics", {}).get("like_count", 0),
+                        "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+                    })
+                # Cache for future calls
+                if author:
+                    cache_author(handle, author, baseline, recent_samples)
+            except Exception:
+                pass
 
     return {
         "tweet_id": tweet_data["id"],
@@ -802,38 +958,53 @@ def predict_tweet(
     has_x_data = False
 
     if X_BEARER_TOKEN:
-        try:
-            url = f"https://api.twitter.com/2/users/by/username/{author_username}"
-            resp = httpx.get(url, headers=x_headers(), params={"user.fields": "public_metrics,username"}, timeout=15)
-            resp.raise_for_status()
-            user_data = resp.json().get("data", {})
-            user_id = user_data.get("id", "")
-            author_metrics = user_data.get("public_metrics", {})
-
-            # Fetch author baseline
-            if user_id:
-                try:
-                    recent = get_author_recent_tweets(user_id)
-                    baseline = compute_author_baseline(recent)
-                    recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
-                    for t in recent_sorted[:3]:
-                        recent_samples.append({
-                            "text": t.get("text", "")[:100],
-                            "impressions": t.get("public_metrics", {}).get("impression_count", 0),
-                            "likes": t.get("public_metrics", {}).get("like_count", 0),
-                            "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
-                        })
-                except Exception:
-                    pass
-
-            try:
-                trending = get_trending_topics()
-            except Exception:
-                pass
-
+        # Check cache first
+        cached = get_cached_author(author_username)
+        if cached:
+            author_metrics = {
+                "followers_count": cached["followers"],
+                "following_count": cached["following"],
+                "tweet_count": cached["tweet_count"],
+            }
+            baseline = cached["baseline"]
+            recent_samples = cached["recent_samples"]
             has_x_data = True
-        except Exception as e:
-            print(f"  (X API unavailable: {e}. Using LLM-only mode.)")
+        else:
+            try:
+                url = f"https://api.twitter.com/2/users/by/username/{author_username}"
+                resp = httpx.get(url, headers=x_headers(), params={"user.fields": "public_metrics,username"}, timeout=15)
+                resp.raise_for_status()
+                user_data = resp.json().get("data", {})
+                user_id = user_data.get("id", "")
+                author_metrics = user_data.get("public_metrics", {})
+
+                # Fetch author baseline
+                if user_id:
+                    try:
+                        recent = get_author_recent_tweets(user_id)
+                        baseline = compute_author_baseline(recent)
+                        recent_sorted = sorted(recent, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
+                        for t in recent_sorted[:3]:
+                            recent_samples.append({
+                                "text": t.get("text", "")[:100],
+                                "impressions": t.get("public_metrics", {}).get("impression_count", 0),
+                                "likes": t.get("public_metrics", {}).get("like_count", 0),
+                                "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
+                            })
+                    except Exception:
+                        pass
+
+                # Cache for future calls
+                cache_author(author_username, user_data, baseline, recent_samples)
+
+            except Exception as e:
+                print(f"  (X API unavailable: {e}. Using LLM-only mode.)")
+
+        # Fetch trending (not cached — changes frequently)
+        try:
+            trending = get_trending_topics()
+        except Exception:
+            pass
 
     context = {
         "text": text,
