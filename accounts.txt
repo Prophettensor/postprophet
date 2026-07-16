@@ -1,7 +1,9 @@
 # PostProphet — Tracked Accounts
 # One X handle per line (without @). Lines starting with # are comments.
-# Bittensor subnet accounts only, ordered by subnet ID.
-# Source: taoflute.com subnet data + X API verification.
+# These accounts form the ecosystem baseline + are tracked for predictions.
+# Put your niche's accounts here — they do double duty:
+#   1. Eval tracking (track mode captures their fresh tweets)
+#   2. Ecosystem context (predict mode uses their cached baselines)
 
 # SN1 — Apex
 macrocosmosai

@@ -1222,9 +1222,9 @@ def report_phase():
             except Exception:
                 pass
 
-            print(f"  @{username} ({followers:,} followers, avg {avg_imp:.0f} imp/tweet)")
+            print(f"  @{username} ({followers:,} followers, median {avg_imp:.0f} imp/tweet)")
             print(f"  Tweet: {tweet_text}...")
-            print(f"  Target: {target:,} (1.2x baseline) | Predicted: {prob:.0%} | Estimate: {point:,} | Actual: {actual:,} | {'✅ HIT' if hit else '❌ MISS'}")
+            print(f"  Target: {target:,} (2x median) | Predicted: {prob:.0%} | Estimate: {point:,} | Actual: {actual:,} | {'✅ HIT' if hit else '❌ MISS'}")
             if elapsed:
                 print(f"  Tweet age at prediction: {elapsed}")
             print(f"  Reasoning: {reasoning}")
@@ -1408,21 +1408,25 @@ def main():
 PostProphet — Prediction harness for social media reach
 
 Usage:
-  python postprophet.py capture          — Capture real tweets via keyword search and predict
-  python postprophet.py track            — Capture latest tweets from tracked accounts (accounts.txt)
-  python postprophet.py resolve          — Resolve pending predictions and score
-  python postprophet.py report           — Show score history
-  python postprophet.py run              — Capture → resolve → report
-  python postprophet.py predict <tweet>  — Predict reach for an unpublished tweet
+  python postprophet.py track            — Capture fresh tweets from tracked accounts (<12h old) and predict
+  python postprophet.py resolve          — Resolve pending predictions at posted_at + 24h and score with Brier
+  python postprophet.py report           — Show score history + detailed predictions with reasoning
+  python postprophet.py predict <tweet> — Predict reach for an unpublished tweet
                                            (requires --author, optional: --target, --timeframe, --post-time)
+  python craft.py --author <handle> --topic "<topic>"  — Iterative tweet improvement loop
+
+Scoring: 8 dimensions (hook, specificity, emotion, reply_inducement,
+         bookmark_worthiness, structure, clarity, link_penalty_risk)
+Target:  2x author's median impressions (aspirational, grounded in real history)
+Eval:    Brier score (0=perfect, 1=worst)
 
 Environment:
-  X_BEARER_TOKEN          — X API v2 bearer token
+  X_BEARER_TOKEN          — X API v2 bearer token (pay-per-use)
   OPENAI_API_KEY          — OpenAI API key
-  POSTPROPHET_MODEL       — LLM model (default: gpt-4o-mini)
-  POSTPROPHET_TIMEFRAME   — Hours to wait before resolving (default: 1)
-  POSTPROPHET_TARGET      — Target impressions (default: 10000, ignored in track mode)
-  POSTPROPHET_BATCH       — Tweets per capture batch (default: 20)
+  POSTPROPHET_MODEL       — LLM model (default: gpt-4o-mini, model-agnostic)
+  POSTPROPHET_TIMEFRAME   — Hours before resolving (default: 24)
+  POSTPROPHET_TARGET      — Fallback target (default: 10000, overridden by 2x median in track mode)
+  POSTPROPHET_BATCH       — Tweets per keyword capture batch (default: 20)
 """)
         return
 

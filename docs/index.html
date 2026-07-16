@@ -134,7 +134,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     Reach prediction for X
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>Write a tweet, set a target, get a probability. PostProphet tells you if it'll hit — and what to change if it won't.</p>
+  <p>Write a tweet, get a probability. PostProphet scores it on 8 dimensions, sees your ecosystem, and tells you exactly what to change.</p>
   <div class="btns">
     <a href="#how" class="btn btn-primary">How it works</a>
     <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
@@ -143,13 +143,13 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
   <!-- Prediction demo -->
   <div class="predict-demo">
     <div class="predict-input">
-      <div class="label">Your tweet · Your target</div>
-      <div class="content">"We just shipped AI-powered bug prediction. Here's how it works 🧵" · 50k in 24h</div>
+      <div class="label">Your tweet</div>
+      <div class="content">"We just shipped agent-native payments on Bittensor. Real escrow, real settlement, no middleware."</div>
     </div>
     <div class="predict-output">
-      <div class="label">Prediction</div>
-      <div class="prob">73%</div>
-      <div class="reasoning">Strong hook, trending topic, good posting time. Add specific numbers in the thread to push past 80%.</div>
+      <div class="label">Prediction · 2x median target</div>
+      <div class="prob">55%</div>
+      <div class="reasoning">hook 8 · spec 8 · emotion 6 · reply 5 · bookmark 7 · structure 6 · clarity 7 · link_safe 10. Match the first-person announcement structure of your best tweet. Drop the second sentence.</div>
     </div>
   </div>
 </div>
@@ -171,14 +171,14 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
         <div class="num">2</div>
         <div>
           <h3>Get a prediction</h3>
-          <p>PostProphet predicts the probability of hitting your target. It factors in your account's history, the content, timing, and what's trending.</p>
+          <p>PostProphet scores your tweet on 8 dimensions — hook, specificity, emotional trigger, reply inducement, bookmark worthiness, structure, clarity, and link risk. It sees your account history, your ecosystem, and analyzes attached media.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">3</div>
         <div>
           <h3>Iterate until it ships</h3>
-          <p>Low probability? PostProphet tells you what to change. Tweak, re-predict, and post when it clears your threshold.</p>
+          <p>Low probability? PostProphet gives directive feedback — not "add a personal touch" but "Open with 'We just shipped...' — match your best tweet's structure." Use the craft loop to iterate automatically.</p>
         </div>
       </div>
     </div>
@@ -194,12 +194,22 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
       <div class="eval-row">
         <span class="eval-badge">BRIER SCORE</span>
         <h3>Standard forecasting metric</h3>
-        <p>How well does the probability match reality? 0 = perfect, 0.25 = random guessing. Change the harness, rerun, compare scores. If it goes down, the change improved the harness.</p>
+        <p>How well does the probability match reality? 0 = perfect, 1 = worst. Change the harness, rerun, compare scores.</p>
+      </div>
+      <div class="eval-row">
+        <span class="eval-badge">2X MEDIAN</span>
+        <h3>Aspirational target grounded in reality</h3>
+        <p>Each tweet predicts against 2x the author's median impressions — will this tweet perform twice as well as their typical tweet? Grounded in real history, not a fixed number.</p>
+      </div>
+      <div class="eval-row">
+        <span class="eval-badge">NO LEAKAGE</span>
+        <h3>Prediction tweet's engagement is hidden</h3>
+        <p>The model never sees the tweet's own likes, replies, or bookmarks. Ecosystem tweets posted after the prediction are filtered out. It predicts as if the tweet hasn't been posted yet.</p>
       </div>
       <div class="eval-row">
         <span class="eval-badge">24H RESOLVE</span>
-        <h3>Impressions plateau at 24 hours</h3>
-        <p>95% of tweets stop getting new impressions after 24 hours. Predictions resolve at 24h for the full picture.</p>
+        <h3>Resolves at the tweet's actual 24h mark</h3>
+        <p>95% of tweets stop getting impressions after 24 hours. Predictions resolve at posted_at + 24h, not prediction time + 24h.</p>
       </div>
     </div>
   </div>

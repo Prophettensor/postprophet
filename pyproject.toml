@@ -1,7 +1,7 @@
 [project]
 name = "postprophet"
 version = "0.1.0"
-description = "Prediction harness for social media reach"
+description = "Prediction harness for social media reach — scores tweets on 8 dimensions, predicts probability of hitting 2x median impressions"
 license = "MIT"
 requires-python = ">=3.11"
 dependencies = [

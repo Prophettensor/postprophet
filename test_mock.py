@@ -61,10 +61,10 @@ MOCK_AUTHORS = {
 }
 
 MOCK_BASELINES = {
-    "a1": {"avg_impressions": 8000, "avg_likes": 50, "avg_retweets": 12, "sample_size": 20},
-    "a2": {"avg_impressions": 25000, "avg_likes": 180, "avg_retweets": 45, "sample_size": 20},
-    "a3": {"avg_impressions": 1500, "avg_likes": 8, "avg_retweets": 2, "sample_size": 15},
-    "a4": {"avg_impressions": 80000, "avg_likes": 350, "avg_retweets": 110, "sample_size": 25},
+    "a1": {"median_impressions": 8000, "median_likes": 50, "median_retweets": 12, "sample_size": 20},
+    "a2": {"median_impressions": 25000, "median_likes": 180, "median_retweets": 45, "sample_size": 20},
+    "a3": {"median_impressions": 1500, "median_likes": 8, "median_retweets": 2, "sample_size": 15},
+    "a4": {"median_impressions": 80000, "median_likes": 350, "median_retweets": 110, "sample_size": 25},
 }
 
 MOCK_RECENT_TWEETS = {
@@ -159,7 +159,7 @@ def run_mock_test():
         baseline = context["author_baseline"]
 
         print(f"  [{i}/{len(MOCK_TWEETS)}] @{author['username']} ({author['followers']:,} followers)")
-        print(f"    Baseline: avg {baseline['avg_impressions']:,} imp/tweet")
+        print(f"    Baseline: median {baseline['median_impressions']:,} imp/tweet")
         print(f"    Tweet: {context['text'][:90]}...")
 
         # Call the actual prediction harness
