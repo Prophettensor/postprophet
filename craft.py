@@ -106,7 +106,7 @@ Current tweet:
 
 PostProphet feedback (expert editorial guidance):
 - Probability of reaching 2x median: {feedback['probability']:.0%}
-- Scores: hook {feedback.get('hook_strength', 0)}/10 | specificity {feedback.get('specificity', 0)}/10 | emotional trigger {feedback.get('emotional_trigger', 0)}/10
+- Scores (0-10): hook {feedback.get('hook_strength', 0)} | spec {feedback.get('specificity', 0)} | emotion {feedback.get('emotional_trigger', 0)} | reply_inducement {feedback.get('reply_inducement', 0)} | bookmark {feedback.get('bookmark_worthiness', 0)} | structure {feedback.get('structure_readability', 0)} | clarity {feedback.get('clarity_density', 0)} | link_safe {feedback.get('link_penalty_risk', 0)}
 - Reasoning: {feedback['reasoning']}
 - Pattern analysis: {pattern}
 - Suggestion: {feedback['suggestions']}
@@ -193,11 +193,16 @@ def main():
         hook = result.get("hook_strength", 0)
         spec = result.get("specificity", 0)
         emotion = result.get("emotional_trigger", 0)
+        reply_ind = result.get("reply_inducement", 0)
+        bookmark = result.get("bookmark_worthiness", 0)
+        structure = result.get("structure_readability", 0)
+        clarity = result.get("clarity_density", 0)
+        link_risk = result.get("link_penalty_risk", 0)
         reasoning = result.get("reasoning", "")
         suggestions = result.get("suggestions", "")
         pattern = result.get("pattern_analysis", "")
         
-        print(f"  Scores: hook {hook}/10 | spec {spec}/10 | emotion {emotion}/10")
+        print(f"  Scores: hook {hook} | spec {spec} | emotion {emotion} | reply {reply_ind} | bookmark {bookmark} | structure {structure} | clarity {clarity} | link_safe {link_risk}")
         print(f"  Probability: {prob:.0%}")
         print(f"  Reasoning: {reasoning}")
         if pattern:
@@ -212,6 +217,11 @@ def main():
             "hook_strength": hook,
             "specificity": spec,
             "emotional_trigger": emotion,
+            "reply_inducement": reply_ind,
+            "bookmark_worthiness": bookmark,
+            "structure_readability": structure,
+            "clarity_density": clarity,
+            "link_penalty_risk": link_risk,
             "reasoning": reasoning,
             "suggestions": suggestions,
             "pattern_analysis": pattern,

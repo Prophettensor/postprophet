@@ -235,9 +235,10 @@ def capture_from_accounts():
         })
 
         # Store context for pass 2
-        tweet_metrics = latest.get("public_metrics", {})
+        # NOTE: tweet_metrics and engagement on the PREDICTION tweet are hidden
+        # from the LLM — we're simulating "hasn't been posted yet."
+        # Engagement on OTHER tweets (author's history, ecosystem) is fair game.
         media_info = analyze_media(latest) if latest.get("_media") else {"has_media": False, "media_types": [], "descriptions": []}
-        engagement = get_engagement_context(latest)
         context = {
             "tweet_id": latest["id"],
             "text": latest.get("text", ""),
@@ -254,13 +255,6 @@ def capture_from_accounts():
             "author_recent_top_tweets": recent_samples,
             "author_all_tweets": all_tweet_samples,
             "media": media_info,
-            "engagement": engagement,
-            "tweet_metrics_at_capture": {
-                "likes": tweet_metrics.get("like_count", 0),
-                "retweets": tweet_metrics.get("retweet_count", 0),
-                "replies": tweet_metrics.get("reply_count", 0),
-                "quotes": tweet_metrics.get("quote_count", 0),
-            },
             "trending_topics": trending,
             "has_x_data": True,
         }
@@ -543,14 +537,36 @@ def compute_ecosystem_baseline(all_author_data: list) -> dict:
     best_tweets.sort(key=lambda t: t["imp_per_1k"], reverse=True)
     
     # Collect recent tweets across ecosystem (for "what's being talked about")
+    # Include engagement metrics + age — these are OTHER accounts' tweets, not
+    # the prediction target, so engagement data is fair game
+    now = datetime.now(timezone.utc)
     recent_ecosystem = []
     for author in all_author_data:
         for t in author.get("recent_tweets", []):
+            metrics = t.get("public_metrics", {})
+            created = t.get("created_at", "")
+            age_str = "unknown"
+            if created:
+                try:
+                    posted = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    age_hrs = (now - posted).total_seconds() / 3600
+                    if age_hrs < 1:
+                        age_str = f"{int(age_hrs * 60)}m ago"
+                    elif age_hrs < 24:
+                        age_str = f"{age_hrs:.0f}h ago"
+                    else:
+                        age_str = f"{age_hrs/24:.0f}d ago"
+                except Exception:
+                    pass
             recent_ecosystem.append({
                 "text": t.get("text", "")[:80],
                 "handle": author.get("handle", ""),
-                "impressions": t.get("public_metrics", {}).get("impression_count", 0),
-                "created_at": t.get("created_at", ""),
+                "impressions": metrics.get("impression_count", 0),
+                "replies": metrics.get("reply_count", 0),
+                "bookmarks": metrics.get("bookmark_count", 0),
+                "quotes": metrics.get("quote_count", 0),
+                "age": age_str,
+                "created_at": created,
             })
     
     # Sort by recency — take most recent 15 for "industry pulse"
@@ -692,12 +708,6 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
         "author_baseline": baseline,
         "author_recent_top_tweets": recent_samples,
         "author_all_tweets": all_tweet_samples,
-        "tweet_metrics_at_capture": {
-            "likes": tweet_metrics.get("like_count", 0),
-            "retweets": tweet_metrics.get("retweet_count", 0),
-            "replies": tweet_metrics.get("reply_count", 0),
-            "quotes": tweet_metrics.get("quote_count", 0),
-        },
         "trending_topics": [],
     }
 
@@ -711,18 +721,28 @@ Given a tweet and its context, predict the probability (0.0 to 1.0) that this tw
 
 The target is 2x the author's median impressions — meaning it needs to perform twice as well as their typical tweet. You're predicting whether this is a standout tweet for this author.
 
-STEP 1 — Score the tweet vs their full tweet history AND ecosystem on 3 dimensions (0-10 each):
-- hook_strength: Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets — what do their openings have in common? Does this tweet match that? A bold claim, surprising data, or personal announcement = high. Vague statements or "the future is here" = low.
-- specificity: Does it say something concrete? Named products, numbers, events = high. General statements about "innovation" or "decentralization" = low. Compare to both their best tweets and the ecosystem's best.
-- emotional_trigger: Does it make the reader feel something? Look at their top tweets vs bottom tweets AND the ecosystem best/worst — what's the emotional difference? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)
+STEP 1 — Score the tweet vs their full tweet history AND ecosystem on 8 dimensions (0-10 each):
+
+Content quality:
+- hook_strength: Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets. A bold claim, surprising data, or personal announcement = high. Vague statements = low.
+- specificity: Does it say something concrete? Named products, numbers, events = high. General statements about "innovation" or "decentralization" = low.
+- emotional_trigger: Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)
+
+Algorithm signals (from X's open-source algorithm):
+- reply_inducement: Does it invite response? Open questions, contrarian claims, fill-in-the-blank formats = high (replies are worth 27-150x a like). "Thoughts?" or "Anyone else?" = low. Specific, answerable questions = high.
+- bookmark_worthiness: Is it reference-worthy? Frameworks, data points, lists, how-tos, actionable takeaways = high (bookmarks = 10-12x a like). Opinion-only or news reactions = low.
+- structure_readability: Line breaks between hook and body? Short first line? Visual pacing? (dwell time = ~10x a like). Wall of text = low.
+- clarity_density: Maximum insight per character. Every sentence carries a distinct idea. No filler, no throat-clearing. "Stop doing X" > "You should probably consider stopping doing X."
+- link_penalty_risk: Does the tweet contain an external URL? No link = 10 (safe). Link present = 0-3 (30-94% reach reduction). "Link in bio/reply" workaround = 7-8.
 
 A tweet scoring below 6 on ANY dimension is unlikely to hit 2x median. Be honest — most tweets are mediocre.
 
 STEP 2 — Convert scores to probability. As a rough guide:
-- All three scores 8+: 70-85%
-- Two scores 7+, one weak: 40-60%
-- One score 7+, two weak: 20-35%
-- All scores below 6: 5-20%
+- All scores 7+: 65-80%
+- Two scores 7+, rest decent: 40-55%
+- One score 7+, rest weak: 20-35%
+- All scores below 6: 5-15%
+- Link penalty risk below 5? Cap probability at 25% (links destroy reach)
 
 Also consider:
 - Author's follower count AND engagement baseline
@@ -737,11 +757,16 @@ Return JSON:
   "hook_strength": <0-10>,
   "specificity": <0-10>,
   "emotional_trigger": <0-10>,
+  "reply_inducement": <0-10>,
+  "bookmark_worthiness": <0-10>,
+  "structure_readability": <0-10>,
+  "clarity_density": <0-10>,
+  "link_penalty_risk": <0-10, higher = safer>,
   "probability": <float 0.0-1.0>,
   "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
   "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
   "pattern_analysis": "<1-2 sentences. What specific pattern does their best tweet use that this tweet should match?>",
-  "suggestions": "<Rewrite directive. Don't say 'add a personal touch' or 'be more engaging.' Instead, give the EXACT opening 5-10 words the writer should use, modeled on their best tweet. Example: 'Open with: We just shipped [specific thing]. Their best tweet started with Proud to be part of... — match that first-person announcement structure. Drop the second sentence entirely.'>"
+  "suggestions": "<Rewrite directive. Don't say 'add a personal touch' or 'be more engaging.' Instead, give the EXACT opening 5-10 words the writer should use, modeled on their best tweet.>"
 }}
 
 Tweet: {text}
@@ -752,7 +777,6 @@ Author's recent tweets ranked by impressions (best to worst):
 Ecosystem context (across {eco_accounts} Bittensor subnet accounts):
 {ecosystem}
 Media: {media}
-Engagement signals: {engagement}
 Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
@@ -843,9 +867,17 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         ]
         for bt in eco.get("best_tweets_normalized", [])[:3]:
             eco_lines.append(f"    @{bt['handle']} ({bt['followers']:,} followers, {bt['imp_per_1k']:.1f} imp/1K): \"{bt['text']}\"")
-        eco_lines.append(f"  Recent industry pulse (what subnets are tweeting about now):")
+        eco_lines.append(f"  Recent industry pulse (what subnets are tweeting about, with engagement + age):")
         for rp in eco.get("recent_pulse", [])[:5]:
-            eco_lines.append(f"    @{rp['handle']}: \"{rp['text']}\"")
+            eng = []
+            if rp.get("replies", 0) > 0:
+                eng.append(f"{rp['replies']} replies")
+            if rp.get("bookmarks", 0) > 0:
+                eng.append(f"{rp['bookmarks']} saves")
+            if rp.get("quotes", 0) > 0:
+                eng.append(f"{rp['quotes']} quotes")
+            eng_str = ", ".join(eng) if eng else "no engagement"
+            eco_lines.append(f"    @{rp['handle']} ({rp['age']}, {eng_str}): \"{rp['text']}\"")
         ecosystem_str = "\n".join(eco_lines)
         eco_accounts = eco.get("account_count", 0)
     else:
@@ -864,22 +896,6 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     else:
         media_str = "  no media attached"
 
-    # Format engagement context
-    engagement = context.get("engagement", {})
-    if engagement:
-        eng_parts = []
-        if engagement.get("reply_count", 0) > 0:
-            eng_parts.append(f"{engagement['reply_count']} replies")
-        if engagement.get("quote_count", 0) > 0:
-            eng_parts.append(f"{engagement['quote_count']} quotes")
-        if engagement.get("bookmark_count", 0) > 0:
-            eng_parts.append(f"{engagement['bookmark_count']} bookmarks")
-        if engagement.get("is_quote_tweet"):
-            eng_parts.append("this is a quote tweet")
-        engagement_str = ", ".join(eng_parts) if eng_parts else "no engagement yet"
-    else:
-        engagement_str = "no engagement data"
-
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
         timeframe=tf,
@@ -895,7 +911,6 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         eco_accounts=eco_accounts,
         ecosystem=ecosystem_str,
         media=media_str,
-        engagement=engagement_str,
         posted_at=posted_at_str,
         elapsed=elapsed_str,
         trending=", ".join(context.get("trending_topics", [])) or "none available",
@@ -1329,7 +1344,6 @@ def predict_tweet(
         "author_recent_top_tweets": recent_samples,
         "author_all_tweets": all_tweet_samples,
         "ecosystem": ecosystem,
-        "tweet_metrics_at_capture": {"likes": 0, "retweets": 0, "replies": 0},
         "trending_topics": trending,
         "has_x_data": has_x_data,
     }
