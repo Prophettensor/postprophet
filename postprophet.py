@@ -869,7 +869,7 @@ def resolve_phase():
 
     # Calculate Brier score for this batch
     score = brier_score(resolved_batch)
-    print(f"\n  Brier score: {score:.4f} (0=perfect, 0.25=no skill, 1=worst)")
+    print(f"\n  Brier score: {score:.4f} (0=perfect, 1=worst)")
 
     # Save score record
     score_record = {
@@ -919,7 +919,6 @@ def report_phase():
     total_preds = sum(s["batch_size"] for s in scores)
     print(f"\n  Average Brier:     {avg:.4f}")
     print(f"  Best Brier:        {min(all_briers):.4f}")
-    print(f"  No-skill baseline: 0.2500 (always predict 50%)")
     print(f"  Total batches: {len(scores)}")
     print(f"  Total predictions: {total_preds}")
 
