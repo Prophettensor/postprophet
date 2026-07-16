@@ -298,8 +298,9 @@ def capture_from_accounts():
             continue
 
         # Build reference samples: tweet closest to p75 (hit) and p25 (miss)
-        hit_sample, miss_sample = get_reference_tweets(recent, baseline)
+        all_samples, hit_sample, miss_sample = get_reference_tweets(recent, baseline)
         recent_samples = [s for s in [hit_sample, miss_sample] if s]
+        all_tweet_samples = all_samples
 
         # Cache this author's data for future runs
         cache_author(handle, user, baseline, recent_samples)
@@ -320,6 +321,7 @@ def capture_from_accounts():
             },
             "author_baseline": baseline,
             "author_recent_top_tweets": recent_samples,
+            "author_all_tweets": all_tweet_samples,
             "tweet_metrics_at_capture": {
                 "likes": tweet_metrics.get("like_count", 0),
                 "retweets": tweet_metrics.get("retweet_count", 0),
@@ -430,25 +432,30 @@ def compute_author_baseline(recent_tweets: list) -> dict:
 
 
 def get_reference_tweets(recent_tweets: list, baseline: dict) -> tuple:
-    """Find the author's best and worst recent tweets for context.
-    Returns (hit_sample, miss_sample) — raw examples, not percentile-selected."""
+    """Build reference tweet samples for the prompt.
+    Returns (all_samples, hit_sample, miss_sample) where all_samples is
+    every tweet ranked by impressions — gives the model a full pattern to learn from."""
     if not recent_tweets:
-        return None, None
+        return [], None, None
 
     sorted_tweets = sorted(recent_tweets, key=lambda t: t.get("public_metrics", {}).get("impression_count", 0), reverse=True)
-    hit_tweet = sorted_tweets[0]
-    miss_tweet = sorted_tweets[-1]
 
-    def format_sample(t, tier):
+    def format_sample(t, rank):
         return {
-            "text": t.get("text", "")[:100],
+            "text": t.get("text", "")[:120],
             "impressions": t.get("public_metrics", {}).get("impression_count", 0),
             "likes": t.get("public_metrics", {}).get("like_count", 0),
             "retweets": t.get("public_metrics", {}).get("retweet_count", 0),
-            "tier": tier,
+            "rank": rank,
         }
 
-    return format_sample(hit_tweet, "hit"), format_sample(miss_tweet, "miss")
+    all_samples = [format_sample(t, i + 1) for i, t in enumerate(sorted_tweets)]
+    hit_sample = all_samples[0] if all_samples else None
+    hit_sample["tier"] = "hit" if hit_sample else None
+    miss_sample = all_samples[-1] if all_samples else None
+    miss_sample["tier"] = "miss" if miss_sample else None
+
+    return all_samples, hit_sample, miss_sample
 
 
 # ── Author baseline cache ──────────────────────────────────────────────
@@ -515,6 +522,7 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
     # Compute engagement baseline from recent tweets (with cache)
     baseline = {"median_impressions": 0, "median_likes": 0, "median_retweets": 0, "sample_size": 0}
     recent_samples = []
+    all_tweet_samples = []
     if fetch_baseline and handle:
         cached = get_cached_author(handle)
         if cached:
@@ -524,8 +532,9 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
             try:
                 recent = get_author_recent_tweets(author_id)
                 baseline = compute_author_baseline(recent)
-                hit_sample, miss_sample = get_reference_tweets(recent, baseline)
+                all_samples, hit_sample, miss_sample = get_reference_tweets(recent, baseline)
                 recent_samples = [s for s in [hit_sample, miss_sample] if s]
+                all_tweet_samples = all_samples
                 # Cache for future calls
                 if author:
                     cache_author(handle, author, baseline, recent_samples)
@@ -545,6 +554,7 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
         },
         "author_baseline": baseline,
         "author_recent_top_tweets": recent_samples,
+        "author_all_tweets": all_tweet_samples,
         "tweet_metrics_at_capture": {
             "likes": tweet_metrics.get("like_count", 0),
             "retweets": tweet_metrics.get("retweet_count", 0),
@@ -564,10 +574,10 @@ Given a tweet and its context, predict the probability (0.0 to 1.0) that this tw
 
 The target is 2x the author's median impressions — meaning it needs to perform twice as well as their typical tweet. You're predicting whether this is a standout tweet for this author.
 
-STEP 1 — Score the tweet vs their best tweet on 3 dimensions (0-10 each):
-- hook_strength: Does it open with something that stops the scroll? Compare to their best tweet's opening. A bold claim, surprising data, or personal announcement = high. Vague statements or "the future is here" = low.
-- specificity: Does it say something concrete? Named products, numbers, specific events = high. General statements about "innovation" or "decentralization" = low.
-- emotional_trigger: Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low.
+STEP 1 — Score the tweet vs their full tweet history on 3 dimensions (0-10 each):
+- hook_strength: Does it open with something that stops the scroll? Look at their top-performing tweets — what do their openings have in common? Does this tweet match that? A bold claim, surprising data, or personal announcement = high. Vague statements or "the future is here" = low.
+- specificity: Does it say something concrete? Look at their top tweets — are they specific (named products, numbers, events) or general? Score this tweet the same way. General statements about "innovation" or "decentralization" = low.
+- emotional_trigger: Does it make the reader feel something? Look at their top tweets vs bottom tweets — what's the emotional difference? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low.
 
 A tweet scoring below 6 on ANY dimension is unlikely to hit 2x median. Be honest — most tweets are mediocre.
 
@@ -600,10 +610,8 @@ Return JSON:
 Tweet: {text}
 Author: @{username} ({followers} followers, {following} following)
 Author baseline: median {median_impressions:.0f} impressions/tweet, median {median_likes:.0f} likes/tweet, median {median_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
-Author's best recent tweet:
-{hit_tweet}
-Author's worst recent tweet:
-{miss_tweet}
+Author's recent tweets ranked by impressions (best to worst):
+{all_tweets}
 Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
@@ -655,8 +663,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         median_likes = 0
         median_retweets = 0
         baseline_sample = 0
-        hit_str = "  (no data — infer from knowledge)"
-        miss_str = "  (no data — infer from knowledge)"
+        all_tweets_str = "  (no data — infer from knowledge)"
     else:
         llm_only_note = ""
         followers_str = context["author"]["followers"]
@@ -666,16 +673,23 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         median_retweets = baseline.get("median_retweets", 0)
         baseline_sample = baseline.get("sample_size", 0)
         
-        hit_lines = []
-        miss_lines = []
-        for t in context.get("author_recent_top_tweets", []):
-            line = f"  - \"{t['text']}\" → {t['impressions']} impressions, {t['likes']} likes"
-            if t.get("tier") == "hit":
-                hit_lines.append(line)
-            elif t.get("tier") == "miss":
-                miss_lines.append(line)
-        hit_str = "\n".join(hit_lines) if hit_lines else "  (no data)"
-        miss_str = "\n".join(miss_lines) if miss_lines else "  (no data)"
+        # Format all tweets ranked by impressions
+        all_tweets = context.get("author_all_tweets", [])
+        if all_tweets:
+            tweet_lines = []
+            for t in all_tweets:
+                tweet_lines.append(f"  #{t['rank']} ({t['impressions']:,} imp, {t['likes']} likes): \"{t['text']}\"")
+            all_tweets_str = "\n".join(tweet_lines)
+        else:
+            # Fallback to best/worst from recent_top_tweets
+            hit_miss = context.get("author_recent_top_tweets", [])
+            if hit_miss:
+                tweet_lines = []
+                for t in hit_miss:
+                    tweet_lines.append(f"  ({t['impressions']:,} imp, {t['likes']} likes): \"{t['text']}\"")
+                all_tweets_str = "\n".join(tweet_lines)
+            else:
+                all_tweets_str = "  (no data)"
 
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
@@ -688,8 +702,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         median_likes=median_likes,
         median_retweets=median_retweets,
         baseline_sample=baseline_sample,
-        hit_tweet=hit_str,
-        miss_tweet=miss_str,
+        all_tweets=all_tweets_str,
         posted_at=posted_at_str,
         elapsed=elapsed_str,
         trending=", ".join(context.get("trending_topics", [])) or "none available",
@@ -1019,6 +1032,7 @@ def predict_tweet(
     author_metrics = {"followers_count": 0, "following_count": 0, "tweet_count": 0}
     baseline = {"median_impressions": 0, "median_likes": 0, "median_retweets": 0, "sample_size": 0}
     recent_samples = []
+    all_tweet_samples = []
     trending = []
     has_x_data = False
 
@@ -1048,8 +1062,9 @@ def predict_tweet(
                     try:
                         recent = get_author_recent_tweets(user_id)
                         baseline = compute_author_baseline(recent)
-                        hit_sample, miss_sample = get_reference_tweets(recent, baseline)
+                        all_samples, hit_sample, miss_sample = get_reference_tweets(recent, baseline)
                         recent_samples = [s for s in [hit_sample, miss_sample] if s]
+                        all_tweet_samples = all_samples
                     except Exception:
                         pass
 
@@ -1085,6 +1100,7 @@ def predict_tweet(
         },
         "author_baseline": baseline,
         "author_recent_top_tweets": recent_samples,
+        "author_all_tweets": all_tweet_samples,
         "tweet_metrics_at_capture": {"likes": 0, "retweets": 0, "replies": 0},
         "trending_topics": trending,
         "has_x_data": has_x_data,

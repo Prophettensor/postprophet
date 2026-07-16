@@ -55,7 +55,7 @@ def fetch_author_examples(handle):
         return None, None
     
     baseline = compute_author_baseline(recent)
-    hit, miss = get_reference_tweets(recent, baseline)
+    all_samples, hit, miss = get_reference_tweets(recent, baseline)
     
     if hit or miss:
         cache_author(handle, user, baseline, [s for s in [hit, miss] if s])
