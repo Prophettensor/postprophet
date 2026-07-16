@@ -654,14 +654,14 @@ def resolve_phase():
 
 
 def report_phase():
-    """Phase 3: Show summary of all scores."""
-    if not os.path.exists(SCORES_FILE):
-        print("\nNo scores yet.")
-        return
-
+    """Phase 3: Show summary of all scores + detailed predictions with reasoning."""
     print("\n" + "=" * 60)
     print("  PostProphet — Score History")
     print("=" * 60 + "\n")
+
+    if not os.path.exists(SCORES_FILE):
+        print("  No scores yet. Run 'track' then 'resolve' first.")
+        return
 
     with open(SCORES_FILE) as f:
         scores = [json.loads(line) for line in f if line.strip()]
@@ -675,11 +675,62 @@ def report_phase():
         batch = s["batch_size"]
         print(f"  {date:<24} {model:<20} {brier:<8.4f} {batch:<6}")
 
-    # Show overall average
-    avg = sum(s["brier_score"] for s in scores) / len(scores)
+    # Overall stats
+    all_briers = [s["brier_score"] for s in scores]
+    avg = sum(all_briers) / len(all_briers)
+    best = min(all_briers)
+    worst = max(all_briers)
+    total_preds = sum(s["batch_size"] for s in scores)
     print(f"\n  Overall average Brier: {avg:.4f}")
+    print(f"  Best Brier:  {best:.4f}")
+    print(f"  Worst Brier: {worst:.4f}")
     print(f"  Total batches: {len(scores)}")
-    print(f"  Total predictions: {sum(s['batch_size'] for s in scores)}")
+    print(f"  Total predictions: {total_preds}")
+
+    # Show detailed predictions from the most recent batch
+    predictions = load_predictions()
+    resolved = [p for p in predictions if p.get("resolved")]
+
+    if resolved:
+        print("\n" + "=" * 60)
+        print("  Recent Predictions (with reasoning)")
+        print("=" * 60 + "\n")
+
+        # Show last 10 resolved predictions
+        for p in resolved[-10:]:
+            username = p["context"]["author"]["username"]
+            followers = p["context"]["author"].get("followers", 0)
+            baseline = p["context"].get("author_baseline", {})
+            avg_imp = baseline.get("avg_impressions", 0)
+            prob = p["prediction"].get("probability", 0)
+            actual = p.get("actual_impressions", 0)
+            target = p.get("target", 0)
+            hit = actual >= target
+            reasoning = p["prediction"].get("reasoning", "")
+            suggestions = p["prediction"].get("suggestions", "")
+            tweet_text = p["context"].get("text", "")[:70]
+            elapsed = ""
+            created = p["context"].get("created_at", "")
+            predicted = p.get("predicted_at", "")
+            try:
+                if created and predicted:
+                    c = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                    pr = datetime.fromisoformat(predicted.replace("Z", "+00:00"))
+                    delta = pr - c
+                    hrs = delta.total_seconds() / 3600
+                    elapsed = f"{hrs:.1f}h old at prediction"
+            except Exception:
+                pass
+
+            print(f"  @{username} ({followers:,} followers, avg {avg_imp:.0f} imp/tweet)")
+            print(f"  Tweet: {tweet_text}...")
+            print(f"  Target: {target:,} (1.2x baseline) | Predicted: {prob:.0%} | Actual: {actual:,} | {'✅ HIT' if hit else '❌ MISS'}")
+            if elapsed:
+                print(f"  Tweet age at prediction: {elapsed}")
+            print(f"  Reasoning: {reasoning}")
+            if suggestions:
+                print(f"  Suggestion: {suggestions}")
+            print()
 
 
 # ── Predict for an unpublished tweet (product mode) ─────────────────────
