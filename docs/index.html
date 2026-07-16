@@ -24,29 +24,26 @@
   --text:#1a1a1a; --text-secondary:#555; --text-tertiary:#999;
   --border:#e8e4df; --border-strong:#d4cfc8;
   --accent:#4338ca; --accent-hover:#3730a3; --accent-soft:#eef2ff;
-  --code-bg:#f5f2ee; --code-border:#e0dcd6;
 }
 [data-theme="dark"] {
   --bg:#0a0a0a; --bg-card:#161616; --bg-elevated:#1c1c1c;
   --text:#f0ece4; --text-secondary:#a8a39a; --text-tertiary:#6a655e;
   --border:#262626; --border-strong:#363636;
   --accent:#818cf8; --accent-hover:#6366f1; --accent-soft:rgba(129,140,248,.12);
-  --code-bg:#111; --code-border:#262626;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;transition:background .2s,color .2s}
-.serif{font-family:'Instrument Serif',Georgia,serif}
 
 /* Nav */
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
 nav .inner{max-width:760px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
 .logo{text-decoration:none;color:var(--text);font-weight:800;font-size:1.05em;letter-spacing:-.02em}
 nav .links{display:flex;gap:24px;align-items:center}
-nav .links a{color:var(--text);text-decoration:none;font-size:.92em;font-weight:500;transition:color .15s;opacity:.7}
-nav .links a:hover{color:var(--text);opacity:1}
-.icon-btn{background:none;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:8px;display:flex;align-items:center;transition:all .15s;opacity:.6}
-.icon-btn:hover{background:var(--bg-elevated);color:var(--text);opacity:1}
+nav .links a{color:var(--text);text-decoration:none;font-size:.92em;font-weight:500;opacity:.7}
+nav .links a:hover{opacity:1}
+.icon-btn{background:none;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:8px;display:flex;align-items:center;opacity:.6}
+.icon-btn:hover{background:var(--bg-elevated);opacity:1}
 
 /* Container */
 .container{max-width:760px;margin:0 auto;padding:0 24px}
@@ -124,7 +121,6 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     <a href="/" class="logo">PostProphet</a>
     <div class="links">
       <a href="#how">How it works</a>
-      <a href="#eval">The eval</a>
       <a href="https://github.com/buckZz7/postprophet">GitHub</a>
       <button class="icon-btn" onclick="toggleTheme()" id="themeBtn"></button>
     </div>
@@ -138,7 +134,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     Reach prediction for X
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>Give PostProphet who's posting, what they're saying, when, and a target. It predicts the probability of hitting that target — plus reasoning on what would improve it.</p>
+  <p>Write a tweet, set a target, get a probability. PostProphet tells you if it'll hit — and what to change if it won't.</p>
   <div class="btns">
     <a href="#how" class="btn btn-primary">How it works</a>
     <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
@@ -147,13 +143,13 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
   <!-- Prediction demo -->
   <div class="predict-demo">
     <div class="predict-input">
-      <div class="label">Who · What · When · Where · Target</div>
-      <div class="content">@techstartup · "We just shipped AI-powered bug prediction. Here's how it works 🧵" · Tomorrow 9am · X · 50k in 24h</div>
+      <div class="label">Your tweet · Your target</div>
+      <div class="content">"We just shipped AI-powered bug prediction. Here's how it works 🧵" · 50k in 24h</div>
     </div>
     <div class="predict-output">
       <div class="label">Prediction</div>
       <div class="prob">73%</div>
-      <div class="reasoning">Author averages 12k impressions/tweet. Strong hook, trending topic, good posting time. Add specific numbers in the thread to push past 80%.</div>
+      <div class="reasoning">Strong hook, trending topic, good posting time. Add specific numbers in the thread to push past 80%.</div>
     </div>
   </div>
 </div>
@@ -162,27 +158,27 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="container" id="how">
   <div class="section">
     <h2 class="section-title">How it works</h2>
-    <p class="section-sub">Not a dashboard. Not analytics. A prediction harness that makes agents better marketers.</p>
+    <p class="section-sub">Not a dashboard. Not analytics. A prediction harness that helps you post better.</p>
     <div class="how-grid">
       <div class="how-step">
         <div class="num">1</div>
         <div>
-          <h3>Five inputs</h3>
-          <p>Who is posting (author + their engagement baseline). What they're saying (the tweet). When it goes live. Where (X for now). Target (impressions + timeframe).</p>
+          <h3>Write your tweet</h3>
+          <p>Draft your tweet and set a target — how many impressions you want, and in what timeframe.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">2</div>
         <div>
-          <h3>PostProphet predicts</h3>
-          <p>Probability of hitting the target within the timeframe — plus a point estimate and reasoning explaining the prediction. Factors in author baseline, recent top tweets, trending topics, and time of day.</p>
+          <h3>Get a prediction</h3>
+          <p>PostProphet predicts the probability of hitting your target. It factors in your account's history, the content, timing, and what's trending.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">3</div>
         <div>
           <h3>Iterate until it ships</h3>
-          <p>Low probability? The reasoning tells the agent what to change. Modify, re-predict, repeat until it clears the threshold. Then post.</p>
+          <p>Low probability? PostProphet tells you what to change. Tweak, re-predict, and post when it clears your threshold.</p>
         </div>
       </div>
     </div>
@@ -190,30 +186,20 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 </div>
 
 <!-- THE EVAL -->
-<div class="container" id="eval">
+<div class="container">
   <div class="section">
     <h2 class="section-title">The eval</h2>
-    <p class="section-sub">Real tweets. Real impressions. Real scores. No simulation.</p>
+    <p class="section-sub">Real tweets. Real impressions. Real scores.</p>
     <div class="eval-card">
-      <div class="eval-row">
-        <span class="eval-badge">NO LEAKAGE</span>
-        <h3>The LLM never sees the answer</h3>
-        <p>PostProphet never shows the LLM likes, retweets, or impressions for the tweet being predicted. It predicts from content, author baseline, timing, and trending topics only. Old tweets and new tweets eval identically — the LLM can't cheat.</p>
-      </div>
-      <div class="eval-row">
-        <span class="eval-badge">REAL TWEETS</span>
-        <h3>Tracked accounts, not keyword search</h3>
-        <p>The harness monitors real X accounts (Bittensor ecosystem by default). Each tweet gets a dynamic target of 1.2x the author's average impressions. Predictions spread from 30-80% — meaningful Brier scores, not all-hits or all-misses.</p>
-      </div>
       <div class="eval-row">
         <span class="eval-badge">BRIER SCORE</span>
         <h3>Standard forecasting metric</h3>
-        <p>How well does the probability match reality? 0 = perfect, 1 = worst, 0.25 = random guessing. Change the harness, rerun on fresh tweets, compare scores. If the Brier goes down, the change improved the harness.</p>
+        <p>How well does the probability match reality? 0 = perfect, 0.25 = random guessing. Change the harness, rerun, compare scores. If it goes down, the change improved the harness.</p>
       </div>
       <div class="eval-row">
         <span class="eval-badge">24H RESOLVE</span>
         <h3>Impressions plateau at 24 hours</h3>
-        <p>Research shows 95% of tweets stop getting new impressions after 24 hours, with a median half-life of 80 minutes (Pfeffer et al., 2023). Predictions resolve at 24h for the full picture.</p>
+        <p>95% of tweets stop getting new impressions after 24 hours. Predictions resolve at 24h for the full picture.</p>
       </div>
     </div>
   </div>
@@ -222,7 +208,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <!-- CTA -->
 <div class="cta-section">
   <h2>Stop guessing.<br>Start predicting.</h2>
-  <p>Open source. Model-agnostic. MIT licensed.</p>
+  <p>Open source. MIT licensed.</p>
   <a href="https://github.com/buckZz7/postprophet" class="btn btn-primary">GitHub</a>
 </div>
 
@@ -231,10 +217,10 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
   <div class="inner">
     <div class="brand">
       <div style="font-weight:800;font-size:1.05em;margin-bottom:8px">PostProphet</div>
-      <p>A prediction harness for social media reach. Open source, model-agnostic, MIT licensed.</p>
+      <p>Predict reach before you post.</p>
     </div>
   </div>
-  <div class="bottom">Predict reach before you post.</div>
+  <div class="bottom">Open source. MIT licensed.</div>
 </footer>
 
 <script>
