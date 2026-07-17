@@ -137,6 +137,59 @@ def load_tracked_accounts():
         return [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 
+def add_accounts(handles: list[str]):
+    """Add accounts to accounts.txt and fetch/cache their data immediately.
+    Skips handles already in the list."""
+    accounts_file = os.path.join(os.path.dirname(__file__), "accounts.txt")
+    existing = set(load_tracked_accounts())
+    
+    new_handles = []
+    for handle in handles:
+        handle = handle.strip().lstrip("@")
+        if not handle or handle in existing:
+            continue
+        new_handles.append(handle)
+        existing.add(handle)
+    
+    if not new_handles:
+        print("  All accounts already tracked.")
+        return
+    
+    # Append to accounts.txt
+    with open(accounts_file, "a") as f:
+        for handle in new_handles:
+            f.write(handle + "\n")
+    
+    print(f"  Added {len(new_handles)} account(s): {', '.join(new_handles)}")
+    
+    # Fetch and cache each new account's data
+    if not X_BEARER_TOKEN:
+        print("  ⚠️  No X_BEARER_TOKEN set. Run 'track' later to fetch data.")
+        return
+    
+    for handle in new_handles:
+        print(f"  Fetching @{handle}...")
+        user = get_user_by_username(handle)
+        if not user:
+            print(f"    ❌ User not found")
+            continue
+        user_id = user.get("id", "")
+        followers = user.get("public_metrics", {}).get("followers_count", 0)
+        if followers == 0:
+            print(f"    ⚠️  0 followers")
+            continue
+        try:
+            recent = get_author_recent_tweets(user_id)
+            baseline = compute_author_baseline(recent)
+            all_samples, hit_sample, miss_sample = get_reference_tweets(recent, baseline)
+            recent_samples = [s for s in [hit_sample, miss_sample] if s]
+            cache_author(handle, user, baseline, recent_samples)
+            median_imp = baseline.get("median_impressions", 0)
+            print(f"    ✓ {followers:,} followers | median {median_imp:.0f} imp/tweet")
+        except Exception as e:
+            print(f"    ❌ Error: {e}")
+
+
 def capture_from_accounts():
     """Capture latest tweets from tracked accounts and predict with dynamic targets.
     Two passes: first fetch all author data + compute ecosystem baseline, then predict."""
@@ -1553,6 +1606,7 @@ def main():
 PostProphet — Prediction harness for social media reach
 
 Usage:
+  python postprophet.py add <handle> [handle2...]  — Add accounts to tracking + fetch their data
   python postprophet.py track            — Capture fresh tweets from tracked accounts (<12h old) and predict
   python postprophet.py resolve          — Resolve pending predictions at posted_at + 24h and score with Brier
   python postprophet.py report           — Show score history + detailed predictions with reasoning
@@ -1576,7 +1630,14 @@ Environment:
 
     cmd = sys.argv[1]
 
-    if cmd == "capture":
+    if cmd == "add":
+        # Add accounts to tracking list and fetch their data
+        if len(sys.argv) < 3:
+            print("Usage: python postprophet.py add <handle1> [handle2] [handle3] ...")
+            return
+        handles = sys.argv[2:]
+        add_accounts(handles)
+    elif cmd == "capture":
         capture_phase()
     elif cmd == "track":
         capture_from_accounts()
