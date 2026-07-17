@@ -58,8 +58,13 @@ def main():
         hit = p["actual_impressions"] >= p["target"]
         verdict = "YES" if pred["probability"] >= 0.5 else "NO"
         text = p["context"]["text"]
-        if len(text) > 80:
-            text = text[:80] + "..."
+        # Build scores dict
+        dim_scores = {}
+        for key in ["hook_strength", "specificity", "emotional_trigger",
+                      "reply_inducement", "bookmark_worthiness",
+                      "structure_readability", "clarity_density", "link_penalty_risk"]:
+            if key in pred:
+                dim_scores[key] = pred[key]
         recent_preds.append({
             "author": p["context"]["author"]["username"],
             "target": p["target"],
@@ -68,6 +73,12 @@ def main():
             "actual": p["actual_impressions"],
             "hit": hit,
             "text": text,
+            "reasoning": pred.get("reasoning", ""),
+            "suggestions": pred.get("suggestions", ""),
+            "scores": dim_scores,
+            "followers": p.get("followers_at_prediction", p["context"]["author"].get("followers", 0)),
+            "elapsed": p.get("elapsed_at_prediction", ""),
+            "has_url": p.get("has_url", False),
         })
 
     # Overall new arch Brier

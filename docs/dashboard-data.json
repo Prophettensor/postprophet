@@ -48,7 +48,22 @@
       "verdict": "NO",
       "actual": 255,
       "hit": false,
-      "text": "Most risk intelligence cannot be proven wrong.\n\nA firm publishes a report, a com..."
+      "text": "Most risk intelligence cannot be proven wrong.\n\nA firm publishes a report, a committee recommends parameters, markets move... Nobody goes back to check\nwhether the assessment was right.\n\nUnfalsifiable analysis is not just unhelpful, but structurally dangerous. When outputs cannot https://t.co/emcdvm4PIm",
+      "reasoning": "This tweet is similar to the author's previous tweet that garnered 198 impressions, which also lacked a strong hook and emotional engagement. The presence of a link significantly reduces its potential reach. Overall, the tweet does not stand out enough to achieve 2x the author's median impressions.",
+      "suggestions": "Start with 'Risk intelligence often goes unchecked, leading to...' to create a stronger hook.",
+      "scores": {
+        "hook_strength": 5,
+        "specificity": 6,
+        "emotional_trigger": 5,
+        "reply_inducement": 4,
+        "bookmark_worthiness": 6,
+        "structure_readability": 6,
+        "clarity_density": 5,
+        "link_penalty_risk": 2
+      },
+      "followers": 540,
+      "elapsed": "",
+      "has_url": false
     },
     {
       "author": "aureliusaligned",
@@ -57,7 +72,22 @@
       "verdict": "NO",
       "actual": 258,
       "hit": false,
-      "text": "Check out the surprising result of our first competition with @Apex_SN1 on devel..."
+      "text": "Check out the surprising result of our first competition with @Apex_SN1 on developing steering modules https://t.co/vnnhGec9Ph",
+      "reasoning": "This tweet closely resembles a previous one that performed poorly, scoring only 188 impressions. The hook is not strong enough to capture attention, and the link significantly diminishes its reach potential. The lack of emotional engagement and specificity further limits its appeal.",
+      "suggestions": "Start with 'We were shocked to discover the results of our competition!'",
+      "scores": {
+        "hook_strength": 5,
+        "specificity": 6,
+        "emotional_trigger": 4,
+        "reply_inducement": 5,
+        "bookmark_worthiness": 4,
+        "structure_readability": 6,
+        "clarity_density": 5,
+        "link_penalty_risk": 3
+      },
+      "followers": 677,
+      "elapsed": "",
+      "has_url": false
     },
     {
       "author": "yanez__ai",
@@ -66,7 +96,22 @@
       "verdict": "NO",
       "actual": 2657,
       "hit": false,
-      "text": "\"My head is my seed phrase.\" -Mark Jeffrey (@markjeffrey), Hashrate host\n\nJose (..."
+      "text": "\"My head is my seed phrase.\" -Mark Jeffrey (@markjeffrey), Hashrate host\n\nJose (@josercaldera) said it plainly on a recent podcast:\n\"...when you think about wallets, about the amount of money that collectively we've lost in this market on coins that we cannot recover ever because https://t.co/XLvhEkqBVq https://t.co/LNEKAYU4O9",
+      "reasoning": "This tweet has a moderate hook strength and emotional trigger, but lacks specificity and clarity. It is somewhat similar to the author's best tweet, which had a clear and specific message. However, the presence of links significantly reduces its reach potential.",
+      "suggestions": "Start with 'Have you ever lost money because...' to create a stronger hook.",
+      "scores": {
+        "hook_strength": 6,
+        "specificity": 5,
+        "emotional_trigger": 7,
+        "reply_inducement": 4,
+        "bookmark_worthiness": 5,
+        "structure_readability": 6,
+        "clarity_density": 5,
+        "link_penalty_risk": 2
+      },
+      "followers": 1846,
+      "elapsed": "",
+      "has_url": false
     },
     {
       "author": "bitsecai",
@@ -75,7 +120,22 @@
       "verdict": "NO",
       "actual": 2924,
       "hit": false,
-      "text": "A security audit is a snapshot\n\nThe moment new code ships, that snapshot risks e..."
+      "text": "A security audit is a snapshot\n\nThe moment new code ships, that snapshot risks expiration\n\nMost teams treat it like a permanent stamp\nSo do the people watching from outside\n\nInvestors\nUsers\nAnyone building on top of that subnet\n\nThey're all trusting a security posture they have https://t.co/SrDXQQWFd0",
+      "reasoning": "This tweet has a strong hook but lacks emotional engagement and specificity compared to the author's best-performing tweet. The presence of a link significantly reduces its reach potential, and the clarity density is not optimal. The best tweet had a clearer message and higher engagement metrics.",
+      "suggestions": "Start with 'Security audits are often misunderstood\u2014' to create a stronger emotional connection and specificity.",
+      "scores": {
+        "hook_strength": 7,
+        "specificity": 6,
+        "emotional_trigger": 5,
+        "reply_inducement": 6,
+        "bookmark_worthiness": 7,
+        "structure_readability": 6,
+        "clarity_density": 5,
+        "link_penalty_risk": 3
+      },
+      "followers": 2252,
+      "elapsed": "",
+      "has_url": false
     },
     {
       "author": "nodexo",
@@ -84,7 +144,22 @@
       "verdict": "NO",
       "actual": 14626,
       "hit": true,
-      "text": "Want to mine Nodexo? Here's exactly how. \n\nGo from a blank server to a live, ear..."
+      "text": "Want to mine Nodexo? Here's exactly how. \n\nGo from a blank server to a live, earning miner in about 6 minutes. Every step covered.\n\nhttps://t.co/vWFUbljj09",
+      "reasoning": "This tweet closely resembles the author's best-performing tweet, which also provided a clear and actionable guide. While the hook is strong and the content is specific, the presence of a link significantly reduces its reach potential. The emotional trigger is decent, but not compelling enough to elevate it further.",
+      "suggestions": "Start with 'Unlock the secrets to mining Nodexo!'",
+      "scores": {
+        "hook_strength": 8,
+        "specificity": 9,
+        "emotional_trigger": 7,
+        "reply_inducement": 6,
+        "bookmark_worthiness": 8,
+        "structure_readability": 7,
+        "clarity_density": 8,
+        "link_penalty_risk": 3
+      },
+      "followers": 7461,
+      "elapsed": "",
+      "has_url": false
     },
     {
       "author": "minotaursubnet",
@@ -93,7 +168,22 @@
       "verdict": "NO",
       "actual": 897,
       "hit": false,
-      "text": "Big update from the Minotaur team! \n\nFollowing the restoration of emissions and ..."
+      "text": "Big update from the Minotaur team! \n\nFollowing the restoration of emissions and the recent system optimizations, we\u2019re excited to share a major enhancement to Minotaur\u2019s Incentive Mechanism.\n\n\ud835\udde0\ud835\uddf6\ud835\uddfb\ud835\uddf2\ud835\uddff \ud835\uddf2\ud835\uddfa\ud835\uddf6\ud835\ude00\ud835\ude00\ud835\uddf6\ud835\uddfc\ud835\uddfb\ud835\ude00 \ud835\uddee\ud835\uddff\ud835\uddf2 \ud835\uddf6\ud835\uddfb\ud835\uddf0\ud835\uddff\ud835\uddf2\ud835\uddee\ud835\ude00\ud835\uddf6\ud835\uddfb\ud835\uddf4 \ud835\uddf3\ud835\uddff\ud835\uddfc\ud835\uddfa \ud835\udfed\ud835\udfec% \ud835\ude01\ud835\uddfc \ud835\udff3\ud835\udff1%! https://t.co/g52fKf9I9k",
+      "reasoning": "This tweet has a strong hook and specific details about the emissions increase, similar to the author's best tweet which also discussed updates to the Incentive Mechanism. However, the emotional trigger is moderate, and the presence of a link significantly reduces its reach potential.",
+      "suggestions": "Start with 'Exciting news for Minotaur users!' to capture attention and create a sense of urgency.",
+      "scores": {
+        "hook_strength": 7,
+        "specificity": 8,
+        "emotional_trigger": 6,
+        "reply_inducement": 5,
+        "bookmark_worthiness": 7,
+        "structure_readability": 8,
+        "clarity_density": 7,
+        "link_penalty_risk": 3
+      },
+      "followers": 1375,
+      "elapsed": "",
+      "has_url": false
     },
     {
       "author": "sundaebar_ai",
@@ -102,7 +192,22 @@
       "verdict": "NO",
       "actual": 229,
       "hit": false,
-      "text": "Want to participate in a #SN121 challenge? Here\u2019s a breakdown on how to earn.\n\nR..."
+      "text": "Want to participate in a #SN121 challenge? Here\u2019s a breakdown on how to earn.\n\nRegister a hotkey on SN121 \u27a1\ufe0f write your SKILL.md \u27a1\ufe0f\u00a0submit it to the active challenge.\n\nOur validator runs anti-gaming gates, then LLM-as-judge. Top the leaderboard, earn continuous emissions.\n\nThat's https://t.co/W0mJLymmDw",
+      "reasoning": "This tweet has a strong hook and specificity, similar to the author's best tweet about a major milestone. However, the emotional trigger is moderate, and the presence of a link significantly reduces its reach potential. The tweet's structure is clear and easy to read, which is a positive factor.",
+      "suggestions": "Kickstart with 'Join the SN121 challenge today!' to create urgency and excitement.",
+      "scores": {
+        "hook_strength": 7,
+        "specificity": 8,
+        "emotional_trigger": 6,
+        "reply_inducement": 5,
+        "bookmark_worthiness": 7,
+        "structure_readability": 8,
+        "clarity_density": 7,
+        "link_penalty_risk": 3
+      },
+      "followers": 1230,
+      "elapsed": "",
+      "has_url": false
     },
     {
       "author": "swarmsubnet",
@@ -111,7 +216,22 @@
       "verdict": "NO",
       "actual": 2338,
       "hit": false,
-      "text": "Starting today, SWARM enters a new chapter.\n\nWe are expanding beyond autonomous ..."
+      "text": "Starting today, SWARM enters a new chapter.\n\nWe are expanding beyond autonomous navigation and focusing our network on two of the hardest frontiers in autonomous flight:\n\n\ud83d\udc1d Multi-drone swarm coordination\n\ud83c\udfaf High-speed autonomous interception\n\nWith SOTApilot V5 today live, miners https://t.co/TcyCccld2m",
+      "reasoning": "This tweet has a strong hook and specific details about the new chapter and technology, similar to the author's best tweet which also had a clear focus on innovation. However, the emotional trigger is moderate, and the presence of a link introduces a penalty that caps the reach potential.",
+      "suggestions": "Start with 'Exciting news: SWARM is evolving!'",
+      "scores": {
+        "hook_strength": 7,
+        "specificity": 8,
+        "emotional_trigger": 6,
+        "reply_inducement": 5,
+        "bookmark_worthiness": 7,
+        "structure_readability": 7,
+        "clarity_density": 6,
+        "link_penalty_risk": 4
+      },
+      "followers": 2019,
+      "elapsed": "",
+      "has_url": false
     }
   ],
   "stats": {

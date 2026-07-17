@@ -22,59 +22,82 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .mono{font-family:'JetBrains Mono',monospace}
 
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,10,10,0.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
-nav .inner{max-width:900px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+nav .inner{max-width:680px;margin:0 auto;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
 .logo{text-decoration:none;color:var(--text);font-weight:800;font-size:1.05em;letter-spacing:-.02em}
-nav .links{display:flex;gap:24px;align-items:center}
-nav .links a{color:var(--text-secondary);text-decoration:none;font-size:.92em;font-weight:500}
+nav .links{display:flex;gap:20px;align-items:center}
+nav .links a{color:var(--text-secondary);text-decoration:none;font-size:.9em;font-weight:500}
 nav .links a:hover{color:var(--text)}
 
-.container{max-width:900px;margin:0 auto;padding:0 24px}
+.container{max-width:680px;margin:0 auto;padding:0 20px}
 
-.hero{padding:100px 0 40px;text-align:center}
-.hero h1{font-size:2.4em;font-weight:900;letter-spacing:-.03em;margin-bottom:8px}
-.hero p{color:var(--text-secondary);font-size:1.05em}
-.live-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:rgba(74,222,128,0.1);color:var(--green);border-radius:100px;font-size:.78em;font-weight:600;margin-bottom:16px}
+.hero{padding:100px 0 36px;text-align:center}
+.hero h1{font-size:2em;font-weight:900;letter-spacing:-.03em;margin-bottom:8px}
+.hero p{color:var(--text-secondary);font-size:1em}
+.live-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:rgba(74,222,128,0.1);color:var(--green);border-radius:100px;font-size:.76em;font-weight:600;margin-bottom:16px}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:40px}
-.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
-.stat-card .label{font-size:.72em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:6px}
-.stat-card .value{font-size:1.8em;font-weight:800}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:36px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 8px;text-align:center}
+.stat-card .label{font-size:.66em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:4px}
+.stat-card .value{font-size:1.5em;font-weight:800}
 .stat-card .value.green{color:var(--green)}
-.stat-card .value.red{color:var(--red)}
-.stat-card .sub{font-size:.78em;color:var(--text-tertiary);margin-top:4px}
+.stat-card .sub{font-size:.72em;color:var(--text-tertiary);margin-top:2px}
 
-.section{padding:30px 0}
-.section-title{font-size:1.3em;font-weight:700;margin-bottom:16px;letter-spacing:-.02em}
-.section-sub{color:var(--text-secondary);font-size:.92em;margin-bottom:20px}
+.section{padding:24px 0}
+.section-title{font-size:1.2em;font-weight:700;margin-bottom:8px;letter-spacing:-.02em}
+.section-sub{color:var(--text-secondary);font-size:.88em;margin-bottom:16px}
 
-.chart-container{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:30px}
-.chart-container canvas{max-height:300px}
+.chart-container{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
+.chart-container canvas{max-height:260px}
 
-table{width:100%;border-collapse:collapse}
-th{text-align:left;padding:10px 12px;font-size:.78em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;border-bottom:1px solid var(--border)}
-td{padding:12px;border-bottom:1px solid var(--border);font-size:.9em}
-td.author{color:var(--accent);font-weight:600}
-td.verdict-yes{color:var(--green);font-weight:600}
-td.verdict-no{color:var(--yellow);font-weight:600}
-td.hit{color:var(--green)}
-td.miss{color:var(--red)}
+/* Prediction cards */
+.pred-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden;cursor:pointer;transition:border-color .15s}
+.pred-card:hover{border-color:var(--border-strong)}
+.pred-card.expanded{border-color:var(--accent)}
 
-.cal-row{display:flex;align-items:center;gap:12px;padding:8px 0}
-.cal-label{width:80px;font-size:.85em;color:var(--text-secondary);font-family:'JetBrains Mono',monospace}
-.cal-bar-container{flex:1;height:24px;background:var(--bg-elevated);border-radius:6px;overflow:hidden;position:relative}
-.cal-bar-predicted{height:100%;background:rgba(129,140,248,0.3);border-right:2px solid var(--accent);transition:width 0.5s}
-.cal-bar-actual{position:absolute;top:0;bottom:0;background:rgba(74,222,128,0.2);border-right:2px solid var(--green);transition:width 0.5s}
-.cal-value{width:100px;font-size:.8em;color:var(--text-secondary);font-family:'JetBrains Mono',monospace}
+.pred-header{display:flex;align-items:center;gap:10px;padding:14px 16px}
+.pred-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;color:var(--accent);flex-shrink:0}
+.pred-author{font-weight:600;font-size:.92em;color:var(--accent)}
+.pred-meta{font-size:.76em;color:var(--text-tertiary)}
+.pred-spacer{flex:1}
+.pred-verdict{font-size:.78em;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0}
+.pred-verdict.yes{background:rgba(74,222,128,0.12);color:var(--green)}
+.pred-verdict.no{background:rgba(251,191,36,0.12);color:var(--yellow)}
+.pred-result{font-size:1.1em;flex-shrink:0}
 
-footer{border-top:1px solid var(--border);padding:30px 0;text-align:center;color:var(--text-tertiary);font-size:.85em}
+.pred-body{padding:0 16px 14px}
+.pred-tweet{font-size:.92em;color:var(--text);line-height:1.5;margin-bottom:10px;word-break:break-word;white-space:pre-wrap}
+.pred-numbers{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em}
+.pred-num{display:flex;flex-direction:column}
+.pred-num .lbl{font-size:.7em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em}
+.pred-num .val{font-weight:600}
+.pred-num .val.mono{font-family:'JetBrains Mono',monospace}
+
+.pred-details{max-height:0;overflow:hidden;transition:max-height .3s ease;border-top:0 solid var(--border)}
+.pred-card.expanded .pred-details{max-height:600px;border-top:1px solid var(--border)}
+.pred-details-inner{padding:14px 16px}
+
+.pred-scores{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.score-chip{padding:3px 8px;border-radius:6px;background:var(--bg-elevated);font-size:.72em;font-family:'JetBrains Mono',monospace}
+.score-chip .name{color:var(--text-tertiary)}
+.score-chip .val{color:var(--text);font-weight:600}
+.score-chip.low .val{color:var(--red)}
+.score-chip.mid .val{color:var(--yellow)}
+.score-chip.high .val{color:var(--green)}
+
+.pred-section{margin-bottom:10px}
+.pred-section-title{font-size:.72em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:4px}
+.pred-section-text{font-size:.88em;color:var(--text-secondary);line-height:1.5}
+
+footer{border-top:1px solid var(--border);padding:24px 0;text-align:center;color:var(--text-tertiary);font-size:.82em}
 
 @media(max-width:640px){
   .stats-row{grid-template-columns:repeat(2,1fr)}
-  .hero h1{font-size:1.8em}
-  table{font-size:.8em}
-  td,th{padding:8px 6px}
+  .hero h1{font-size:1.6em}
+  .hero{padding:90px 0 28px}
+  .pred-numbers{gap:12px}
+  nav .links a:not(:last-child){display:none}
 }
 </style>
 </head>
@@ -105,28 +128,28 @@ footer{border-top:1px solid var(--border);padding:30px 0;text-align:center;color
     <div class="stat-card">
       <div class="label">Resolved</div>
       <div class="value" id="stat-resolved">-</div>
-      <div class="sub">predictions scored</div>
+      <div class="sub">scored</div>
     </div>
     <div class="stat-card">
-      <div class="label">Brier (current)</div>
+      <div class="label">Brier</div>
       <div class="value green" id="stat-brier">-</div>
       <div class="sub">0 = perfect</div>
     </div>
     <div class="stat-card">
       <div class="label">Pending</div>
       <div class="value" id="stat-pending">-</div>
-      <div class="sub">awaiting resolution</div>
+      <div class="sub">awaiting</div>
     </div>
     <div class="stat-card">
       <div class="label">Hit Rate</div>
       <div class="value" id="stat-hitrate">-</div>
-      <div class="sub">of all resolved</div>
+      <div class="sub">resolved</div>
     </div>
   </div>
 
   <div class="section">
     <h2 class="section-title">Brier Score Over Time</h2>
-    <p class="section-sub">Lower is better. 0.25 = no skill (coin flip). 0 = perfect prediction. Old architecture batches shown for comparison.</p>
+    <p class="section-sub">Lower is better. 0.25 = coin flip. 0 = perfect. Gray = old architecture. Green = current.</p>
     <div class="chart-container">
       <canvas id="brierChart"></canvas>
     </div>
@@ -134,7 +157,7 @@ footer{border-top:1px solid var(--border);padding:30px 0;text-align:center;color
 
   <div class="section">
     <h2 class="section-title">Calibration</h2>
-    <p class="section-sub">When the model says X%, how often does it actually hit? Perfect calibration = predicted matches actual.</p>
+    <p class="section-sub">When the model says X%, how often does it hit? Predicted should match actual.</p>
     <div class="chart-container">
       <canvas id="calChart"></canvas>
     </div>
@@ -142,23 +165,8 @@ footer{border-top:1px solid var(--border);padding:30px 0;text-align:center;color
 
   <div class="section">
     <h2 class="section-title">Recent Predictions</h2>
-    <p class="section-sub">Latest resolved predictions with the current architecture.</p>
-    <div class="chart-container" style="padding:0;overflow:hidden">
-      <table>
-        <thead>
-          <tr>
-            <th>Author</th>
-            <th>Tweet</th>
-            <th>Verdict</th>
-            <th>Prob</th>
-            <th>Target</th>
-            <th>Actual</th>
-            <th>Result</th>
-          </tr>
-        </thead>
-        <tbody id="preds-table"></tbody>
-      </table>
-    </div>
+    <p class="section-sub">Tap any prediction to see the full tweet, scores, and reasoning.</p>
+    <div id="preds-list"></div>
   </div>
 
   <footer>
@@ -167,6 +175,27 @@ footer{border-top:1px solid var(--border);padding:30px 0;text-align:center;color
 </div>
 
 <script>
+const SCORE_LABELS = {
+  hook_strength: 'Hook',
+  specificity: 'Spec',
+  emotional_trigger: 'Emotion',
+  reply_inducement: 'Reply',
+  bookmark_worthiness: 'Bookmark',
+  structure_readability: 'Structure',
+  clarity_density: 'Clarity',
+  link_penalty_risk: 'Link Safe'
+};
+
+function scoreClass(val) {
+  if (val >= 7) return 'high';
+  if (val >= 4) return 'mid';
+  return 'low';
+}
+
+function fmt(n) {
+  return n.toLocaleString();
+}
+
 fetch('dashboard-data.json')
 .then(r => r.json())
 .then(data => {
@@ -174,7 +203,6 @@ fetch('dashboard-data.json')
   document.getElementById('stat-resolved').textContent = data.stats.total_resolved;
   document.getElementById('stat-brier').textContent = data.stats.new_arch_brier.toFixed(3);
   document.getElementById('stat-pending').textContent = data.stats.pending;
-
   const hits = data.recent_predictions.filter(p => p.hit).length;
   const total = data.recent_predictions.length;
   document.getElementById('stat-hitrate').textContent = total > 0 ? Math.round(hits/total*100) + '%' : '-';
@@ -182,6 +210,7 @@ fetch('dashboard-data.json')
   // Brier chart
   const brierLabels = data.brier_history.map(b => b.date);
   const brierValues = data.brier_history.map(b => b.brier);
+  const newArchStart = 3; // First 3 batches are old arch
   new Chart(document.getElementById('brierChart'), {
     type: 'line',
     data: {
@@ -190,12 +219,21 @@ fetch('dashboard-data.json')
         label: 'Brier Score',
         data: brierValues,
         borderColor: '#818cf8',
-        backgroundColor: 'rgba(129,140,248,0.1)',
+        backgroundColor: 'rgba(129,140,248,0.08)',
         fill: true,
         tension: 0.3,
         pointRadius: 5,
-        pointBackgroundColor: brierValues.map((v, i) => i >= 3 ? '#4ade80' : '#6a655e'),
-        pointBorderColor: brierValues.map((v, i) => i >= 3 ? '#4ade80' : '#6a655e'),
+        pointBackgroundColor: brierValues.map((v, i) => i >= newArchStart ? '#4ade80' : '#6a655e'),
+        pointBorderColor: brierValues.map((v, i) => i >= newArchStart ? '#4ade80' : '#6a655e'),
+        pointBorderWidth: 2,
+      }, {
+        label: 'Coin flip (0.25)',
+        data: brierLabels.map(() => 0.25),
+        borderColor: '#6a655e',
+        borderDash: [4, 4],
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false,
       }]
     },
     options: {
@@ -206,23 +244,17 @@ fetch('dashboard-data.json')
         tooltip: {
           callbacks: {
             label: function(ctx) {
+              if (ctx.datasetIndex === 1) return null;
               const b = data.brier_history[ctx.dataIndex];
-              return 'Brier: ' + b.brier + ' (' + b.batch_size + ' predictions)';
+              const arch = ctx.dataIndex >= newArchStart ? 'current arch' : 'old arch';
+              return 'Brier: ' + b.brier + ' (' + b.batch_size + ' preds, ' + arch + ')';
             }
           }
         }
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          max: 0.3,
-          grid: { color: '#262626' },
-          ticks: { color: '#6a655e' }
-        },
-        x: {
-          grid: { color: '#262626' },
-          ticks: { color: '#6a655e' }
-        }
+        y: { beginAtZero: true, max: 0.3, grid: { color: '#262626' }, ticks: { color: '#6a655e' } },
+        x: { grid: { color: '#262626' }, ticks: { color: '#6a655e' } }
       }
     }
   });
@@ -230,27 +262,13 @@ fetch('dashboard-data.json')
   // Calibration chart
   if (data.calibration.length > 0) {
     const calLabels = data.calibration.map(c => c.range);
-    const predicted = data.calibration.map(c => c.predicted);
-    const actual = data.calibration.map(c => c.actual);
     new Chart(document.getElementById('calChart'), {
       type: 'bar',
       data: {
         labels: calLabels,
         datasets: [
-          {
-            label: 'Predicted %',
-            data: predicted,
-            backgroundColor: 'rgba(129,140,248,0.5)',
-            borderColor: '#818cf8',
-            borderWidth: 1,
-          },
-          {
-            label: 'Actual %',
-            data: actual,
-            backgroundColor: 'rgba(74,222,128,0.5)',
-            borderColor: '#4ade80',
-            borderWidth: 1,
-          }
+          { label: 'Predicted %', data: data.calibration.map(c => c.predicted), backgroundColor: 'rgba(129,140,248,0.5)', borderColor: '#818cf8', borderWidth: 1 },
+          { label: 'Actual %', data: data.calibration.map(c => c.actual), backgroundColor: 'rgba(74,222,128,0.5)', borderColor: '#4ade80', borderWidth: 1 }
         ]
       },
       options: {
@@ -258,45 +276,72 @@ fetch('dashboard-data.json')
         maintainAspectRatio: false,
         plugins: {
           legend: { labels: { color: '#a8a39a' } },
-          tooltip: {
-            callbacks: {
-              afterLabel: function(ctx) {
-                const c = data.calibration[ctx.dataIndex];
-                return '(' + c.count + ' predictions)';
-              }
-            }
-          }
+          tooltip: { callbacks: { afterLabel: function(ctx) { const c = data.calibration[ctx.dataIndex]; return '(' + c.count + ' predictions)'; } } }
         },
         scales: {
-          y: {
-            beginAtZero: true,
-            max: 100,
-            grid: { color: '#262626' },
-            ticks: { color: '#6a655e', callback: v => v + '%' }
-          },
-          x: {
-            grid: { color: '#262626' },
-            ticks: { color: '#6a655e' }
-          }
+          y: { beginAtZero: true, max: 100, grid: { color: '#262626' }, ticks: { color: '#6a655e', callback: v => v + '%' } },
+          x: { grid: { color: '#262626' }, ticks: { color: '#6a655e' } }
         }
       }
     });
   }
 
-  // Predictions table
-  const tbody = document.getElementById('preds-table');
-  data.recent_predictions.reverse().forEach(p => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="author">@${p.author}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)">${p.text}</td>
-      <td class="verdict-${p.verdict.toLowerCase()}">${p.verdict}</td>
-      <td class="mono">${p.probability}%</td>
-      <td class="mono">${p.target.toLocaleString()}</td>
-      <td class="mono">${p.actual.toLocaleString()}</td>
-      <td class="${p.hit ? 'hit' : 'miss'}">${p.hit ? '✅' : '❌'}</td>
+  // Prediction cards
+  const list = document.getElementById('preds-list');
+  data.recent_predictions.reverse().forEach((p, idx) => {
+    const card = document.createElement('div');
+    card.className = 'pred-card';
+    card.dataset.idx = idx;
+
+    // Score chips
+    let scoresHtml = '';
+    if (p.scores) {
+      const chips = Object.entries(p.scores).map(([key, val]) => {
+        const label = SCORE_LABELS[key] || key;
+        const cls = scoreClass(val);
+        return '<span class="score-chip ' + cls + '"><span class="name">' + label + '</span> <span class="val">' + val + '</span></span>';
+      }).join('');
+      scoresHtml = '<div class="pred-scores">' + chips + '</div>';
+    }
+
+    const meta = [];
+    if (p.followers) meta.push(fmt(p.followers) + ' followers');
+    if (p.elapsed) meta.push('predicted ' + p.elapsed + ' after post');
+    if (p.has_url) meta.push('has URL');
+
+    card.innerHTML = `
+      <div class="pred-header">
+        <div class="pred-avatar">${p.author.substring(0,2).toUpperCase()}</div>
+        <div>
+          <div class="pred-author">@${p.author}</div>
+          <div class="pred-meta">${meta.join(' · ')}</div>
+        </div>
+        <div class="pred-spacer"></div>
+        <div class="pred-verdict ${p.verdict.toLowerCase()}">${p.verdict} ${p.probability}%</div>
+        <div class="pred-result">${p.hit ? '✅' : '❌'}</div>
+      </div>
+      <div class="pred-body">
+        <div class="pred-tweet">${p.text}</div>
+        <div class="pred-numbers">
+          <div class="pred-num"><span class="lbl">Target</span><span class="val mono">${fmt(p.target)}</span></div>
+          <div class="pred-num"><span class="lbl">Actual</span><span class="val mono" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${fmt(p.actual)}</span></div>
+          <div class="pred-num"><span class="lbl">Ratio</span><span class="val mono">${Math.round(p.actual / p.target * 100)}%</span></div>
+        </div>
+      </div>
+      <div class="pred-details">
+        <div class="pred-details-inner">
+          ${scoresHtml}
+          ${p.reasoning ? '<div class="pred-section"><div class="pred-section-title">Reasoning</div><div class="pred-section-text">' + p.reasoning + '</div></div>' : ''}
+          ${p.suggestions ? '<div class="pred-section"><div class="pred-section-title">Feedback</div><div class="pred-section-text">' + p.suggestions + '</div></div>' : ''}
+        </div>
+      </div>
     `;
-    tbody.appendChild(tr);
+
+    card.querySelector('.pred-header').addEventListener('click', () => {
+      card.classList.toggle('expanded');
+    });
+
+    list.appendChild(card);
   });
 })
 .catch(err => {
