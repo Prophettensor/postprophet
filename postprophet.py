@@ -1119,8 +1119,16 @@ def load_predictions() -> list[dict]:
 
 def save_prediction(prediction: dict):
     """Append a prediction to the JSONL store."""
+    # Strip non-serializable datetime objects from ecosystem data
+    def clean_obj(obj):
+        if isinstance(obj, dict):
+            return {k: clean_obj(v) for k, v in obj.items() if not k.startswith("_")}
+        if isinstance(obj, list):
+            return [clean_obj(item) for item in obj]
+        return obj
+    clean_prediction = clean_obj(prediction)
     with open(PREDICTIONS_FILE, "a") as f:
-        f.write(json.dumps(prediction) + "\n")
+        f.write(json.dumps(clean_prediction) + "\n")
 
 
 def save_score(score_data: dict):
