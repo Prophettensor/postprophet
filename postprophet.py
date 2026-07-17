@@ -1665,6 +1665,20 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             # Skip tweets with no text at all
             if not tweet.get("text", "").strip():
                 continue
+    
+            # Skip link-only tweets that resolve to X-internal URLs
+            # (quote tweets, self-quotes, X articles) — we can't see the content
+            import re as _re_skip
+            _clean = _re_skip.sub(r'https?://\S+', '', tweet.get("text", "")).strip()
+            if len(_clean) < 15:
+                _entities = tweet.get("entities", {})
+                _urls = _entities.get("urls", [])
+                _all_x_links = all(
+                    any(d in u.get("expanded_url", "") for d in ["x.com", "twitter.com"])
+                    for u in _urls
+                ) if _urls else True
+                if _all_x_links:
+                    continue  # Can't evaluate — skip X-internal link-only tweets
             
             # This tweet is >24h old — impressions are final
             actual_impressions = tweet.get("public_metrics", {}).get("impression_count", 0)
