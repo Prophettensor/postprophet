@@ -295,11 +295,24 @@ def capture_from_accounts():
             print(f"    ❌ Prediction error: {e}")
             continue
 
+        # Calculate elapsed time at prediction
+        elapsed_str = "unknown"
+        try:
+            posted_at = datetime.fromisoformat(context["created_at"].replace("Z", "+00:00"))
+            elapsed_hrs = (datetime.now(timezone.utc) - posted_at).total_seconds() / 3600
+            elapsed_str = f"{elapsed_hrs:.1f}h"
+        except Exception:
+            pass
+
         record = {
             "tweet_id": context["tweet_id"],
             "predicted_at": datetime.now(timezone.utc).isoformat(),
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": dynamic_target,
+            "model": OPENAI_MODEL,
+            "followers_at_prediction": context["author"]["followers"],
+            "elapsed_at_prediction": elapsed_str,
+            "has_url": "http" in context["text"] or "https" in context["text"],
             "context": context,
             "prediction": prediction,
             "resolve_after": (
@@ -1181,11 +1194,24 @@ def capture_phase():
             print(f"    Prediction error: {e}")
             prediction = {"probability": 0.5, "reasoning": "error", "suggestions": ""}
 
+        # Calculate elapsed time at prediction
+        elapsed_str = "unknown"
+        try:
+            posted_at = datetime.fromisoformat(context["created_at"].replace("Z", "+00:00"))
+            elapsed_hrs = (datetime.now(timezone.utc) - posted_at).total_seconds() / 3600
+            elapsed_str = f"{elapsed_hrs:.1f}h"
+        except Exception:
+            pass
+
         record = {
             "tweet_id": context["tweet_id"],
             "predicted_at": datetime.now(timezone.utc).isoformat(),
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": TARGET_IMPRESSIONS,
+            "model": OPENAI_MODEL,
+            "followers_at_prediction": context["author"]["followers"],
+            "elapsed_at_prediction": elapsed_str,
+            "has_url": "http" in context["text"] or "https" in context["text"],
             "context": context,
             "prediction": prediction,
             "resolve_after": (
