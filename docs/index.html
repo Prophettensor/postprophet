@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PostProphet — Predict reach before you post</title>
-<meta name="description" content="A simulated X for agents to test tweets before posting. Predict reach, get feedback, iterate in simulation — no real-world trial and error.">
+<meta name="description" content="Test tweets before you post. Get a prediction, iterate on feedback, ship when it's good enough. Open source.">
 <meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -131,10 +131,10 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="hero">
   <div class="hero-badge">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
-    Reach prediction harness for agents
+    Reach prediction for X
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>A simulated X for agents. Test content, get feedback, iterate — all before a single tweet goes live.</p>
+  <p>Test your tweet, get a probability and feedback. Iterate until it's good enough — then post once.</p>
   <div class="btns">
     <a href="#how" class="btn btn-primary">How it works</a>
     <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
@@ -144,12 +144,12 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
   <div class="predict-demo">
     <div class="predict-input">
       <div class="label">Your tweet</div>
-      <div class="content">"We just shipped agent-native payments on Bittensor. Real escrow, real settlement, no middleware."</div>
+      <div class="content">"We just shipped something that makes every other solution look like a science fair project."</div>
     </div>
     <div class="predict-output">
-      <div class="label">Prediction · 2x median target</div>
-      <div class="prob">55%</div>
-      <div class="reasoning">Match the first-person announcement structure of your best tweet. Drop the second sentence.</div>
+      <div class="label">Prediction</div>
+      <div class="prob">45%</div>
+      <div class="reasoning">Strong opening, but too vague. Name what you shipped. Drop the comparison — it reads as hype.</div>
     </div>
   </div>
 </div>
@@ -158,27 +158,34 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="container" id="how">
   <div class="section">
     <h2 class="section-title">How it works</h2>
-    <p class="section-sub">Not a dashboard. Not analytics. A test harness for content agents.</p>
+    <p class="section-sub">Not a dashboard. Not analytics. A prediction you can act on.</p>
     <div class="how-grid">
       <div class="how-step">
         <div class="num">1</div>
         <div>
-          <h3>Write your tweet</h3>
-          <p>Draft your tweet and set a target — how many impressions you want, and in what timeframe.</p>
+          <h3>Draft your tweet</h3>
+          <p>Write what you want to post. No target, no setup — just the text and your handle.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">2</div>
         <div>
           <h3>Get a prediction</h3>
-          <p>PostProphet scores your tweet on content quality and algorithmic signals, grounded in X's engagement weights. It sees your account history and analyzes attached media. Set up ecosystem tracking for cross-account context.</p>
+          <p>PostProphet looks at your real tweet history, scores the draft, and predicts how it'll perform. You get a probability and specific feedback on what to change.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">3</div>
         <div>
-          <h3>Iterate until it ships</h3>
-          <p>Low probability? PostProphet gives directive feedback — not "add a personal touch" but "Open with 'We just shipped...' — match your best tweet's structure." Use the craft loop to iterate automatically.</p>
+          <h3>Revise and repeat</h3>
+          <p>Low probability? The feedback tells you exactly what to fix. Revise, re-predict, and watch the probability climb. The craft loop can run this automatically.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="num">4</div>
+        <div>
+          <h3>Ship when ready</h3>
+          <p>When the probability is high enough, post it. One tweet, well-tested, instead of five shots in the dark.</p>
         </div>
       </div>
     </div>
@@ -189,20 +196,27 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <div class="container">
   <div class="section">
     <h2 class="section-title">The problem</h2>
-    <p class="section-sub">Code agents can run tests. Content agents can't.</p>
+    <p class="section-sub">Every other tool tells you what happened after you posted. PostProphet tells you before.</p>
     <div class="how-grid">
       <div class="how-step">
         <div class="num">1</div>
         <div>
-          <h3>You can't test on real X</h3>
-          <p>An agent writing code can run tests, check output, iterate. An agent writing tweets can't post, delete, post, delete until it gets it right. Every bad post is a real post — seen by real followers, in real time.</p>
+          <h3>You can't unpost</h3>
+          <p>Once it's live, it's live. A bad tweet doesn't just flop — it's seen by followers, indexed, and remembered. There's no delete key that undoes the impression.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">2</div>
         <div>
-          <h3>PostProphet is the test suite</h3>
-          <p>Draft a tweet, get a prediction. The agent sees what works, what doesn't, and exactly what to change. Iterate in simulation until confidence is high — then ship once. No real-world trial and error.</p>
+          <h3>Analytics is hindsight</h3>
+          <p>Engagement dashboards show you what already happened. Great for post-mortems, useless for the tweet you're about to write right now.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="num">3</div>
+        <div>
+          <h3>Gut feel isn't scaleable</h3>
+          <p>Humans get it right sometimes. Agents posting on your behalf need more than a hunch — they need a test they can run before shipping.</p>
         </div>
       </div>
     </div>
@@ -212,28 +226,28 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
 <!-- THE EVAL -->
 <div class="container">
   <div class="section">
-    <h2 class="section-title">The eval</h2>
-    <p class="section-sub">Real tweets. Real impressions. Real scores.</p>
+    <h2 class="section-title">Grounded in reality</h2>
+    <p class="section-sub">Not a vibe check. Real tweets, real impressions, real scoring.</p>
     <div class="eval-card">
       <div class="eval-row">
-        <span class="eval-badge">BRIER SCORE</span>
-        <h3>Standard forecasting metric</h3>
-        <p>How well does the probability match reality? 0 = perfect, 1 = worst. Change the harness, rerun, compare scores.</p>
+        <span class="eval-badge">REAL DATA</span>
+        <h3>Trained on your actual history</h3>
+        <p>PostProphet pulls your real tweet performance — what worked, what didn't, your best and worst. The prediction is grounded in your actual track record, not a generic formula.</p>
       </div>
       <div class="eval-row">
-        <span class="eval-badge">2X MEDIAN</span>
-        <h3>Aspirational target grounded in reality</h3>
-        <p>Each tweet predicts against 2x the author's median impressions — will this tweet perform twice as well as their typical tweet? Grounded in real history, not a fixed number.</p>
+        <span class="eval-badge">FEEDBACK</span>
+        <h3>Actionable, not generic</h3>
+        <p>Not "be more engaging." Specific, directive feedback — name what you shipped, drop the comparison, match the structure of your best-performing tweet. Change this, not that.</p>
       </div>
       <div class="eval-row">
-        <span class="eval-badge">NO LEAKAGE</span>
-        <h3>Prediction tweet's engagement is hidden</h3>
-        <p>The model never sees the tweet's own likes, replies, or bookmarks. Ecosystem tweets posted after the prediction are filtered out. It predicts as if the tweet hasn't been posted yet.</p>
+        <span class="eval-badge">ITERATIVE</span>
+        <h3>Loop until it's ready</h3>
+        <p>Draft, predict, revise, repeat. The craft loop runs automatically — your agent writes, PostProphet edits, the tweet improves with each round. Ship when the probability is high enough.</p>
       </div>
       <div class="eval-row">
-        <span class="eval-badge">24H RESOLVE</span>
-        <h3>Resolves at the tweet's actual 24h mark</h3>
-        <p>95% of tweets stop getting impressions after 24 hours. Predictions resolve at posted_at + 24h, not prediction time + 24h.</p>
+        <span class="eval-badge">OPEN SOURCE</span>
+        <h3>Scored honestly</h3>
+        <p>The harness is evaluated against real resolved tweets. If the predictions are bad, the scores show it. If a change helps, the scores prove it. No black box.</p>
       </div>
     </div>
   </div>
