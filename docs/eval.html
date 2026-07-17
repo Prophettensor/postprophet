@@ -56,7 +56,7 @@ nav .links a:hover{color:var(--text)}
 .pred-card:hover{border-color:var(--border-strong)}
 .pred-card.expanded{border-color:var(--accent)}
 
-.pred-header{display:flex;align-items:center;gap:10px;padding:14px 16px}
+.pred-header{display:flex;align-items:center;gap:10px;padding:14px 16px;-webkit-tap-highlight-color:transparent}
 .pred-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;color:var(--accent);flex-shrink:0}
 .pred-author{font-weight:600;font-size:.92em;color:var(--accent)}
 .pred-meta{font-size:.76em;color:var(--text-tertiary)}
@@ -65,6 +65,8 @@ nav .links a:hover{color:var(--text)}
 .pred-verdict.yes{background:rgba(74,222,128,0.12);color:var(--green)}
 .pred-verdict.no{background:rgba(251,191,36,0.12);color:var(--yellow)}
 .pred-result{font-size:1.1em;flex-shrink:0}
+.pred-expand-hint{font-size:.7em;color:var(--text-tertiary);margin-left:4px;transition:transform .2s}
+.pred-card.expanded .pred-expand-hint{transform:rotate(180deg)}
 
 .pred-body{padding:0 16px 14px}
 .pred-tweet{font-size:.92em;color:var(--text);line-height:1.5;margin-bottom:10px;word-break:break-word;white-space:pre-wrap}
@@ -74,8 +76,8 @@ nav .links a:hover{color:var(--text)}
 .pred-num .val{font-weight:600}
 .pred-num .val.mono{font-family:'JetBrains Mono',monospace}
 
-.pred-details{max-height:0;overflow:hidden;transition:max-height .3s ease;border-top:0 solid var(--border)}
-.pred-card.expanded .pred-details{max-height:600px;border-top:1px solid var(--border)}
+.pred-details{max-height:0;overflow:hidden;transition:max-height .4s ease;border-top:0 solid var(--border)}
+.pred-card.expanded .pred-details{max-height:2000px;border-top:1px solid var(--border)}
 .pred-details-inner{padding:14px 16px}
 
 .pred-scores{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
@@ -319,6 +321,7 @@ fetch('dashboard-data.json')
         <div class="pred-spacer"></div>
         <div class="pred-verdict ${p.verdict.toLowerCase()}">${p.verdict} ${p.probability}%</div>
         <div class="pred-result">${p.hit ? '✅' : '❌'}</div>
+        <div class="pred-expand-hint">▼</div>
       </div>
       <div class="pred-body">
         <div class="pred-tweet">${p.text}</div>
@@ -337,7 +340,12 @@ fetch('dashboard-data.json')
       </div>
     `;
 
-    card.querySelector('.pred-header').addEventListener('click', () => {
+    card.querySelector('.pred-header').addEventListener('click', function(e) {
+      e.preventDefault();
+      card.classList.toggle('expanded');
+    });
+    card.querySelector('.pred-body').addEventListener('click', function(e) {
+      e.preventDefault();
       card.classList.toggle('expanded');
     });
 
