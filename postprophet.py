@@ -1484,96 +1484,11 @@ def enrich_tweet_text(tweet: dict) -> str:
     clean = re.sub(r'https?://\S+', '', text).strip()
     is_link_only = len(clean) < 15
     
-    if not is_link_only:
-        return text  # Has enough text, no need to enrich
+    # Link-only tweet — skip entirely (can't evaluate without the content)
+    if is_link_only:
+        return ""  # Empty signals "skip this tweet"
     
-    # Link-only tweet — resolve the URLs and fetch content
-    enriched_parts = []
-    for u in urls:
-        expanded = u.get("expanded_url", "")
-        display = u.get("display_url", "")
-        
-        if not expanded:
-            continue
-        
-        # Check if it's an X-internal link (quote tweet, media)
-        if any(d in expanded for d in ["x.com", "twitter.com"]):
-            # It's a quote tweet or X media — try to fetch the X article content
-            # X articles (x.com/i/article) have readable text
-            if "/article/" in expanded or "/status/" in expanded:
-                try:
-                    resp = httpx.get(expanded, follow_redirects=True, timeout=8, headers={"User-Agent": "Mozilla/5.0 (compatible; PostProphet/1.0)"})
-                    if resp.status_code == 200:
-                        article_text = extract_article_text(resp.text)
-                        if article_text:
-                            enriched_parts.append(f'[X article content: "{article_text}"]')
-                            continue
-                except Exception:
-                    pass
-            enriched_parts.append(f"[X link: {display}]")
-        else:
-            # External link — fetch the page content
-            try:
-                resp = httpx.get(expanded, follow_redirects=True, timeout=8, headers={"User-Agent": "Mozilla/5.0 (compatible; PostProphet/1.0)"})
-                if resp.status_code == 200:
-                    article_text = extract_article_text(resp.text)
-                    if article_text:
-                        enriched_parts.append(f'[Article content: "{article_text}"]')
-                    else:
-                        # Fall back to title
-                        title_match = re.search(r'<title[^>]*>(.*?)</title>', resp.text, re.IGNORECASE | re.DOTALL)
-                        if title_match:
-                            title = title_match.group(1).strip()[:200]
-                            title = re.sub(r'\s*[|\-–—]\s*.*$', '', title).strip()
-                            enriched_parts.append(f'[Article: "{title}" from {display}]')
-                        else:
-                            enriched_parts.append(f"[Link: {display}]")
-                else:
-                    enriched_parts.append(f"[Link: {display}]")
-            except Exception:
-                enriched_parts.append(f"[Link: {display}]")
-    
-    if enriched_parts:
-        return " ".join(enriched_parts)
     return text
-
-
-def extract_article_text(html: str, max_chars: int = 500) -> str:
-    """Extract readable article text from HTML.
-    
-    Pulls text from <p>, <h1>-<h6>, and <article> tags.
-    Strips scripts, styles, and navigation. Returns first 500 chars
-    of meaningful content — enough for the model to evaluate.
-    """
-    # Remove scripts, styles, and other non-content tags
-    html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<nav[^>]*>.*?</nav>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<footer[^>]*>.*?</footer>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<header[^>]*>.*?</header>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    
-    # Extract text from content tags
-    content_tags = re.findall(r'<(?:p|h[1-6]|article|blockquote|li)[^>]*>(.*?)</(?:p|h[1-6]|article|blockquote|li)>', html, re.DOTALL | re.IGNORECASE)
-    
-    # Clean up each piece
-    pieces = []
-    for tag_content in content_tags:
-        # Strip HTML tags
-        clean = re.sub(r'<[^>]+>', '', tag_content).strip()
-        # Decode common HTML entities
-        clean = clean.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'").replace('&nbsp;', ' ')
-        # Skip very short pieces (likely navigation/footer remnants)
-        if len(clean) > 20:
-            pieces.append(clean)
-    
-    if not pieces:
-        # Fall back to all text
-        all_text = re.sub(r'<[^>]+>', '', html).strip()
-        all_text = re.sub(r'\s+', ' ', all_text)
-        return all_text[:max_chars] if all_text else ""
-    
-    result = " ".join(pieces)
-    return result[:max_chars]
 
 
 def backfill_predictions(max_tweets_per_account: int = 20):
@@ -1686,6 +1601,11 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             # Build context (same as track mode, but NO engagement leakage)
             media_info = analyze_media(tweet) if tweet.get("_media") else {"has_media": False, "media_types": [], "descriptions": []}
             
+            # Enrich tweet text (resolves link-only tweets — returns empty if should skip)
+            enriched_text = enrich_tweet_text(tweet)
+            if not enriched_text:
+                continue  # Link-only tweet we can't evaluate
+            
             # Check if tweet is >24h old
             created_at = tweet.get("created_at", "")
             try:
@@ -1698,7 +1618,7 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             
             context = {
                 "tweet_id": tweet_id,
-                "text": enrich_tweet_text(tweet),
+                "text": enriched_text,
                 "created_at": created_at,
                 "planned_post_time": created_at,
                 "platform": "x",
