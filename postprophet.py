@@ -904,6 +904,7 @@ Also consider:
 - What's currently trending and whether the tweet relates
 - Time of day and whether that's a high-engagement window
 - Time elapsed since posting (older tweets have less room to grow)
+- Your calibration feedback: if your track record shows you're overconfident in a range, adjust down. If underconfident, adjust up. Use your history to improve.
 
 {llm_only_note}
 
@@ -932,6 +933,7 @@ Author's recent tweets ranked by impressions (best to worst):
 Ecosystem context (across {eco_accounts} Bittensor subnet accounts):
 {ecosystem}
 Media: {media}
+Calibration feedback: {calibration}
 Posted at: {posted_at}
 Time elapsed since posting: {elapsed}
 Timeframe: {timeframe}h
@@ -1103,6 +1105,10 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     else:
         media_str = "  no media attached"
 
+    # Compute calibration feedback from resolved predictions
+    cal = compute_calibration()
+    calibration_str = format_calibration_for_prompt(cal) if cal else "  (not enough resolved predictions yet — keep predicting)"
+
     prompt = PREDICTION_PROMPT.format(
         target=tgt,
         timeframe=tf,
@@ -1118,6 +1124,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         eco_accounts=eco_accounts,
         ecosystem=ecosystem_str,
         media=media_str,
+        calibration=calibration_str,
         posted_at=posted_at_str,
         elapsed=elapsed_str,
         trending=", ".join(context.get("trending_topics", [])) or "none available",
@@ -1166,6 +1173,121 @@ def brier_score(predictions: list[dict]) -> float:
         count += 1
 
     return total / count if count > 0 else 1.0
+
+
+def compute_calibration(predictions: list[dict] = None) -> dict:
+    """Compute calibration stats from resolved predictions.
+    
+    Buckets predictions by probability range and compares predicted
+    vs actual hit rate. Identifies systematic over/underconfidence.
+    
+    Returns {buckets, total_count, brier, bias_summary}
+    """
+    if predictions is None:
+        predictions = load_predictions()
+    
+    resolved = [p for p in predictions if p.get("resolved") is True]
+    if len(resolved) < 5:
+        return {}  # Not enough data for meaningful calibration
+    
+    # Define buckets
+    bucket_ranges = [
+        (0.0, 0.2, "0-20%"),
+        (0.2, 0.4, "20-40%"),
+        (0.4, 0.6, "40-60%"),
+        (0.6, 0.8, "60-80%"),
+        (0.8, 1.01, "80-100%"),
+    ]
+    
+    buckets = []
+    for low, high, label in bucket_ranges:
+        in_bucket = [p for p in resolved if low <= p["prediction"]["probability"] < high]
+        if not in_bucket:
+            continue
+        predicted_avg = sum(p["prediction"]["probability"] for p in in_bucket) / len(in_bucket)
+        actual_hits = sum(1 for p in in_bucket if p["actual_impressions"] >= p["target"])
+        actual_rate = actual_hits / len(in_bucket)
+        bias = predicted_avg - actual_rate  # positive = overconfident
+        buckets.append({
+            "range": label,
+            "count": len(in_bucket),
+            "predicted_avg": predicted_avg,
+            "actual_rate": actual_rate,
+            "bias": bias,
+        })
+    
+    # Overall stats
+    total_brier = brier_score(resolved)
+    
+    # Identify biggest biases
+    biases = []
+    for b in buckets:
+        if b["count"] >= 2:  # Only flag buckets with enough data
+            if b["bias"] > 0.1:
+                biases.append(f"When you predict {b['range']}, you're right only {b['actual_rate']:.0%} of the time. You're overconfident here.")
+            elif b["bias"] < -0.1:
+                biases.append(f"When you predict {b['range']}, you're right {b['actual_rate']:.0%} of the time. You're underconfident here.")
+    
+    # Pattern-based biases (which types of tweets does it get wrong?)
+    pattern_biases = []
+    
+    # URL tweets
+    url_preds = [p for p in resolved if p.get("has_url")]
+    if len(url_preds) >= 3:
+        url_brier = brier_score(url_preds)
+        url_bias = sum(p["prediction"]["probability"] - (1.0 if p["actual_impressions"] >= p["target"] else 0.0) for p in url_preds) / len(url_preds)
+        if url_bias > 0.1:
+            pattern_biases.append(f"Tweets with URLs: you're overconfident by {url_bias:.0%}. Links hurt reach more than you predict.")
+    
+    # High follower accounts (>10K)
+    big_accounts = [p for p in resolved if p.get("followers_at_prediction", 0) > 10000]
+    if len(big_accounts) >= 3:
+        big_bias = sum(p["prediction"]["probability"] - (1.0 if p["actual_impressions"] >= p["target"] else 0.0) for p in big_accounts) / len(big_accounts)
+        if big_bias > 0.1:
+            pattern_biases.append(f"Large accounts (>10K followers): you're overconfident by {big_bias:.0%}.")
+        elif big_bias < -0.1:
+            pattern_biases.append(f"Large accounts (>10K followers): you're underconfident by {abs(big_bias):.0%}.")
+    
+    # Small accounts (<2K)
+    small_accounts = [p for p in resolved if 0 < p.get("followers_at_prediction", 0) < 2000]
+    if len(small_accounts) >= 3:
+        small_bias = sum(p["prediction"]["probability"] - (1.0 if p["actual_impressions"] >= p["target"] else 0.0) for p in small_accounts) / len(small_accounts)
+        if small_bias > 0.1:
+            pattern_biases.append(f"Small accounts (<2K followers): you're overconfident by {small_bias:.0%}.")
+        elif small_bias < -0.1:
+            pattern_biases.append(f"Small accounts (<2K followers): you're underconfident by {abs(small_bias):.0%}.")
+    
+    return {
+        "buckets": buckets,
+        "total_count": len(resolved),
+        "brier": total_brier,
+        "bias_summary": biases,
+        "pattern_biases": pattern_biases,
+    }
+
+
+def format_calibration_for_prompt(cal: dict) -> str:
+    """Format calibration data as a string for the prompt."""
+    if not cal or not cal.get("buckets"):
+        return ""  # Not enough data yet
+    
+    lines = [f"Your track record ({cal['total_count']} resolved predictions, Brier: {cal['brier']:.3f}):"]
+    
+    for b in cal["buckets"]:
+        arrow = "↑ overconfident" if b["bias"] > 0.05 else ("↓ underconfident" if b["bias"] < -0.05 else "calibrated")
+        lines.append(f"  {b['range']}: predicted {b['predicted_avg']:.0%}, actual {b['actual_rate']:.0%} ({b['count']} preds) — {arrow}")
+    
+    if cal.get("bias_summary"):
+        lines.append("Calibration notes:")
+        for note in cal["bias_summary"]:
+            lines.append(f"  - {note}")
+    
+    if cal.get("pattern_biases"):
+        lines.append("Pattern biases:")
+        for note in cal["pattern_biases"]:
+            lines.append(f"  - {note}")
+    
+    return "\n".join(lines)
 
 
 # ── Harness: the main loop ──────────────────────────────────────────────
