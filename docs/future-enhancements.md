@@ -19,3 +19,25 @@
 - Risk of becoming a Rube Goldberg machine before the basics are validated
 
 **Trigger for building:** When we have 100+ resolved predictions AND the data shows the model is systematically misweighting small-but-influential accounts.
+
+## Account Discovery from Tracked Replies
+
+**Idea:** Automatically suggest new accounts to track based on who replies to and quotes tweets from existing tracked accounts.
+
+**Why it matters:** Manual curation doesn't scale. But pure keyword search pulls in too much noise. Tracked replies are the highest-signal discovery method — if an account replies to multiple tracked accounts, they're clearly in the ecosystem.
+
+**How it would work:**
+- Scan recent tracked replies/quotes (we already fetch these)
+- Count how many different tracked accounts each replier engages with
+- Suggest accounts that engage with 3+ tracked accounts and have >500 followers
+- Command: `python postprophet.py suggest` — prints a list of candidate accounts with engagement stats
+- User reviews and approves: `python postprophet.py add @suggested_handle`
+- Still curated (human approves) but discovery is automated
+
+**Why not now:**
+- 40 accounts is plenty for the current eval
+- Need more resolved predictions before expanding the ecosystem matters
+- Diluting the ecosystem with noise would hurt the Brier score
+
+**Trigger for building:** When expanding beyond the initial Bittensor niche, or when the 40-account ecosystem feels too small for accurate predictions.
+
