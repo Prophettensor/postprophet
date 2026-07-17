@@ -1,29 +1,18 @@
 # PostProphet
 
-A simulated X for agents to test content before posting.
-
-PostProphet is a prediction harness that lets content agents test tweets in simulation — draft, get a probability, iterate on feedback, and ship once when confidence is high. No real-world trial and error. Every bad tweet you don't post is a win.
+Tweet reach prediction harness. Predict how a tweet will perform before you post it, get feedback on what to change, iterate until it's ready.
 
 The harness predicts the probability of a tweet hitting 2x the author's median impressions within 24 hours of posting, scored with Brier score against real resolved impressions.
 
-## How it works
-
-```
-1. write    — draft your tweet
-2. predict  — PostProphet scores it and predicts probability + feedback
-3. craft    — iterate with the craft loop: draft → predict → revise → repeat
-4. post     — ship when the probability is high enough
-```
-
 ## Usage
 
-### Predict a single tweet (product mode)
+### Predict a single tweet
 
 ```bash
 python postprophet.py predict "your tweet text" --author username
 ```
 
-PostProphet fetches the author's real engagement history and predicts the probability of hitting 2x their median impressions in 24h. If the tweet has attached media, it analyzes it via vision. If you've set up ecosystem tracking (see below), it adds cross-account context.
+Fetches the author's real engagement history and predicts the probability of hitting 2x their median impressions in 24h. If the tweet has attached media, it analyzes it via vision. If ecosystem tracking is set up (see below), it adds cross-account context.
 
 ### Iterative improvement (craft loop)
 
@@ -32,9 +21,9 @@ python craft.py --author username --topic "what the tweet should be about" \
   --target-confidence 0.80 --max-iterations 5
 ```
 
-Drafts a tweet, gets PostProphet's prediction + feedback, revises based on the feedback, repeats until target confidence or max iterations. The writing agent sees the author's actual best/worst tweets and PostProphet's pattern analysis.
+Drafts a tweet, gets PostProphet's prediction + feedback, revises based on the feedback, repeats until target confidence or max iterations.
 
-### Eval mode (test the harness)
+### Eval mode
 
 ```bash
 python postprophet.py track            — Capture fresh tweets from tracked accounts (<12h old)
