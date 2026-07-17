@@ -18,7 +18,6 @@ from openai import OpenAI
 X_BEARER_TOKEN = os.environ.get("X_BEARER_TOKEN", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("POSTPROPHET_MODEL", "gpt-4o-mini")
-HARNESS_VERSION = "v1"  # Bump when prompt, context, or scoring changes
 TIMEFRAME_HOURS = int(os.environ.get("POSTPROPHET_TIMEFRAME", "24"))
 TARGET_IMPRESSIONS = int(os.environ.get("POSTPROPHET_TARGET", "10000"))
 BATCH_SIZE = int(os.environ.get("POSTPROPHET_BATCH", "20"))
@@ -992,6 +991,28 @@ def build_prompt(env: dict) -> str:
 
 
 PREDICTION_PROMPT = build_prompt(load_environment())
+
+
+def _compute_harness_version() -> str:
+    """Compute a version hash from the prompt template + environment config.
+    
+    The version is deterministic: same prompt + same dimensions = same version.
+    Any change to what the model sees produces a new version automatically.
+    Miners can't manually bump or claim a version — it's derived from the inputs.
+    """
+    import hashlib
+    env = load_environment()
+    prompt = build_prompt(env)
+    version_input = json.dumps({
+        "prompt": prompt,
+        "dimensions": env.get("dimensions", []),
+        "probability_guide": env.get("probability_guide", []),
+        "extra_considerations": env.get("extra_considerations", []),
+    }, sort_keys=True)
+    return "v_" + hashlib.sha256(version_input.encode()).hexdigest()[:8]
+
+
+HARNESS_VERSION = _compute_harness_version()
 
 
 def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
