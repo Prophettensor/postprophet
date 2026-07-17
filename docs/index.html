@@ -134,9 +134,9 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     Reach prediction for X
   </div>
   <h1>Predict <span class="accent">reach</span><br>before you <span class="serif-em">post.</span></h1>
-  <p>Test your tweet, get a prediction on how it'll perform, and specific feedback on what to fix. Iterate until it's good enough — then post once.</p>
+  <p>Test your tweet before it goes live. Get a prediction and specific feedback, revise, and post when it's ready.</p>
   <div class="btns">
-    <a href="#how" class="btn btn-primary">How it works</a>
+    <a href="#problem" class="btn btn-primary">Why it matters</a>
     <a href="https://github.com/buckZz7/postprophet" class="btn btn-ghost">GitHub</a>
   </div>
 
@@ -149,7 +149,38 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
     <div class="predict-output">
       <div class="label">Prediction</div>
       <div class="prob">45%</div>
-      <div class="reasoning">Strong opening, but too vague. Name what you shipped. Drop the comparison — it reads as hype.</div>
+      <div class="reasoning">Strong opening, but too vague. Name what you shipped. Drop the comparison, it reads as hype.</div>
+    </div>
+  </div>
+</div>
+
+<!-- THE PROBLEM -->
+<div class="container" id="problem">
+  <div class="section">
+    <h2 class="section-title">The problem</h2>
+    <p class="section-sub">Every other tool tells you what happened after you posted. PostProphet tells you before.</p>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="num">1</div>
+        <div>
+          <h3>You can't unpost</h3>
+          <p>Once it's live, it's live. A bad tweet doesn't just flop. It's seen by followers, indexed, and remembered. There's no delete key that undoes the impression.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="num">2</div>
+        <div>
+          <h3>Analytics is hindsight</h3>
+          <p>Engagement dashboards show you what already happened. Great for post-mortems, useless for the tweet you're about to write right now.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="num">3</div>
+        <div>
+          <h3>Gut feel isn't scaleable</h3>
+          <p>Humans get it right sometimes. Agents posting on your behalf need more than a hunch. They need a test they can run before shipping.</p>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -164,59 +195,28 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
         <div class="num">1</div>
         <div>
           <h3>Draft your tweet</h3>
-          <p>Write your tweet and tell PostProphet your handle. It pulls your real performance history — what's worked, what hasn't — to ground the prediction in your actual track record.</p>
+          <p>Write your tweet and tell PostProphet your handle. It pulls your real performance history to ground the prediction in your actual track record.</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">2</div>
         <div>
           <h3>Get a prediction</h3>
-          <p>You get a prediction on how the tweet will perform and specific feedback. Not "be more engaging" — but "name what you shipped, drop the comparison, match the structure of your best tweet." Change this, not that.</p>
+          <p>You get a prediction on how the tweet will perform and specific feedback. Not "be more engaging" but "name what you shipped, drop the comparison, match the structure of your best tweet."</p>
         </div>
       </div>
       <div class="how-step">
         <div class="num">3</div>
         <div>
           <h3>Revise until ready</h3>
-          <p>Low prediction? Revise based on the feedback, re-predict, and watch it climb. The craft loop can run this automatically — write, edit, repeat until the prediction is high enough to ship.</p>
+          <p>Revise based on the feedback, re-predict, and watch it climb. The craft loop can run this automatically. Write, edit, repeat until the prediction is high enough to ship.</p>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- THE PROBLEM -->
-<div class="container">
-  <div class="section">
-    <h2 class="section-title">The problem</h2>
-    <p class="section-sub">Every other tool tells you what happened after you posted. PostProphet tells you before.</p>
-    <div class="how-grid">
-      <div class="how-step">
-        <div class="num">1</div>
-        <div>
-          <h3>You can't unpost</h3>
-          <p>Once it's live, it's live. A bad tweet doesn't just flop — it's seen by followers, indexed, and remembered. There's no delete key that undoes the impression.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="num">2</div>
-        <div>
-          <h3>Analytics is hindsight</h3>
-          <p>Engagement dashboards show you what already happened. Great for post-mortems, useless for the tweet you're about to write right now.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="num">3</div>
-        <div>
-          <h3>Gut feel isn't scaleable</h3>
-          <p>Humans get it right sometimes. Agents posting on your behalf need more than a hunch — they need a test they can run before shipping.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- THE EVAL -->
+<!-- GROUNDED IN REALITY -->
 <div class="container">
   <div class="section">
     <h2 class="section-title">Grounded in reality</h2>
@@ -225,17 +225,17 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
       <div class="eval-row">
         <span class="eval-badge">REAL DATA</span>
         <h3>Trained on your actual history</h3>
-        <p>PostProphet pulls your real tweet performance — what worked, what didn't, your best and worst. The prediction is grounded in your actual track record, not a generic formula.</p>
+        <p>PostProphet pulls your real tweet performance. What worked, what didn't, your best and worst. The prediction is grounded in your actual track record, not a generic formula.</p>
       </div>
       <div class="eval-row">
         <span class="eval-badge">FEEDBACK</span>
         <h3>Actionable, not generic</h3>
-        <p>Not "be more engaging." Specific, directive feedback — name what you shipped, drop the comparison, match the structure of your best-performing tweet. Change this, not that.</p>
+        <p>Not "be more engaging." Specific, directive feedback. Name what you shipped, drop the comparison, match the structure of your best-performing tweet. Change this, not that.</p>
       </div>
       <div class="eval-row">
         <span class="eval-badge">ITERATIVE</span>
         <h3>Loop until it's ready</h3>
-        <p>Draft, predict, revise, repeat. The craft loop runs automatically — your agent writes, PostProphet edits, the tweet improves with each round. Ship when the prediction is high enough.</p>
+        <p>Draft, predict, revise, repeat. The craft loop runs automatically. Your agent writes, PostProphet edits, the tweet improves with each round. Ship when the prediction is high enough.</p>
       </div>
       <div class="eval-row">
         <span class="eval-badge">OPEN SOURCE</span>
