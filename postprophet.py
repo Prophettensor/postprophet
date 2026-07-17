@@ -868,78 +868,119 @@ def gather_context(tweet_data, includes, fetch_baseline=True):
     }
 
 
+# ── Environment config ───────────────────────────────────────────────────
+
+
+def load_environment(env_name: str = "twitter") -> dict:
+    """Load environment config (scoring dimensions, platform-specific settings).
+    
+    Each environment defines:
+    - dimensions: what to score on (0-10 each)
+    - probability_guide: rough mapping from scores to probability
+    - extra_considerations: factors beyond scores
+    - metric, target_description, timeframe_hours
+    
+    Environments live in environments/<name>.json.
+    New environments (tiktok, email, sales) just add a new JSON file.
+    """
+    env_path = os.path.join(os.path.dirname(__file__), "environments", f"{env_name}.json")
+    if not os.path.exists(env_path):
+        print(f"  ⚠️  Environment '{env_name}' not found, falling back to twitter")
+        env_path = os.path.join(os.path.dirname(__file__), "environments", "twitter.json")
+    with open(env_path) as f:
+        return json.load(f)
+
+
+def build_prompt(env: dict) -> str:
+    """Build the prediction prompt from environment config.
+    
+    Dimensions, probability guide, and considerations are injected dynamically.
+    The prompt template is platform-agnostic — the environment config defines
+    what the model knows about the platform.
+    """
+    # Build dimensions section grouped by category
+    categories = {}
+    for dim in env["dimensions"]:
+        cat = dim.get("category", "General")
+        if cat not in categories:
+            categories[cat] = []
+        categories[cat].append(dim)
+    
+    dim_lines = []
+    for cat, dims in categories.items():
+        dim_lines.append(f"{cat}:")
+        for dim in dims:
+            dim_lines.append(f"- {dim['name']}: {dim['description']}")
+    
+    dimensions_str = "\n".join(dim_lines)
+    dimension_names = [d["name"] for d in env["dimensions"]]
+    dimension_count = len(dimension_names)
+    
+    # Build probability guide
+    guide_str = "\n".join(f"- {g}" for g in env.get("probability_guide", []))
+    
+    # Build extra considerations
+    considerations_str = "\n".join(f"- {c}" for c in env.get("extra_considerations", []))
+    
+    # Build JSON output template with dynamic dimensions
+    # Note: double braces {{ }} are literal braces in .format() strings
+    json_fields = []
+    for name in dimension_names:
+        suffix = " (higher = safer)" if "risk" in name or "safe" in name else ""
+        json_fields.append(f'  "{name}": <0-10{suffix}>')
+    json_fields.append(f'  "probability": <float 0.0-1.0>')
+    json_fields.append(f'  "point_estimate": <integer, your best guess at total {env["metric"]} after {{timeframe}}h>')
+    json_fields.append(f'  "reasoning": "<2-3 sentences. Reference specific data: which of their past content is this most similar to? What makes it better or worse?>"')
+    json_fields.append(f'  "pattern_analysis": "<1-2 sentences. What specific pattern does their best content use that this should match?>"')
+    json_fields.append(f'  "suggestions": "<Rewrite directive. Give the EXACT opening 5-10 words the writer should use, modeled on their best content.>"')
+    json_str = ",\n".join(json_fields)
+    
+    content_type = env.get("content_type", "post")
+    platform = env.get("platform", "social media")
+    metric = env.get("metric", "impressions")
+    target_desc = env.get("target_description", "the target")
+    
+    return "You are a " + platform + " reach forecasting harness.\n" \
+        "\n" \
+        "Given a " + content_type + " and its context, predict the probability (0.0 to 1.0) that this " + content_type + " will reach {target} " + metric + " within {timeframe} hours of being posted.\n" \
+        "\n" \
+        "The target is " + target_desc + ". You're predicting whether this is a standout " + content_type + " for this author.\n" \
+        "\n" \
+        "STEP 1 — Score the " + content_type + " vs their full history AND ecosystem on " + str(dimension_count) + " dimensions (0-10 each):\n" \
+        "\n" + dimensions_str + "\n" \
+        "\n" \
+        "A " + content_type + " scoring below 6 on ANY dimension is unlikely to hit the target. Be honest — most " + content_type + "s are mediocre.\n" \
+        "\n" \
+        "STEP 2 — Convert scores to probability. As a rough guide:\n" + guide_str + "\n" \
+        "\n" \
+        "Also consider:\n" + considerations_str + "\n" \
+        "\n" \
+        "{llm_only_note}\n" \
+        "\n" \
+        "Return JSON:\n" \
+        "{{\n" + json_str + "\n" \
+        "}}\n" \
+        "\n" \
+        + content_type.capitalize() + ": {text}\n" \
+        "Author: @{username} ({followers} followers, {following} following)\n" \
+        "Author baseline: median {median_impressions:.0f} " + metric + "/" + content_type + ", median {median_likes:.0f} likes/" + content_type + ", median {median_retweets:.0f} retweets/" + content_type + " (sample: {baseline_sample} " + content_type + "s)\n" \
+        "Author's recent " + content_type + "s ranked by " + metric + " (best to worst):\n" \
+        "{all_tweets}\n" \
+        "Ecosystem context (across {eco_accounts} accounts):\n" \
+        "{ecosystem}\n" \
+        "Media: {media}\n" \
+        "Calibration feedback: {calibration}\n" \
+        "Posted at: {posted_at}\n" \
+        "Time elapsed since posting: {elapsed}\n" \
+        "Timeframe: {timeframe}h\n" \
+        "Target: {target} " + metric + " (" + target_desc + ")\n" \
+        "Trending: {trending}"
+
+
 # ── Prediction harness ───────────────────────────────────────────────────
 
 
-PREDICTION_PROMPT = """You are a social media reach forecasting harness.
-
-Given a tweet and its context, predict the probability (0.0 to 1.0) that this tweet will reach {target} impressions within {timeframe} hours of being posted.
-
-The target is 2x the author's median impressions — meaning it needs to perform twice as well as their typical tweet. You're predicting whether this is a standout tweet for this author.
-
-STEP 1 — Score the tweet vs their full tweet history AND ecosystem on 8 dimensions (0-10 each):
-
-Content quality:
-- hook_strength: Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets. A bold claim, surprising data, or personal announcement = high. Vague statements = low.
-- specificity: Does it say something concrete? Named products, numbers, events = high. General statements about "innovation" or "decentralization" = low.
-- emotional_trigger: Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)
-
-Algorithm signals (from X's open-source algorithm):
-- reply_inducement: Does it invite response? Open questions, contrarian claims, fill-in-the-blank formats = high (replies are worth 27-150x a like). "Thoughts?" or "Anyone else?" = low. Specific, answerable questions = high.
-- bookmark_worthiness: Is it reference-worthy? Frameworks, data points, lists, how-tos, actionable takeaways = high (bookmarks = 10-12x a like). Opinion-only or news reactions = low.
-- structure_readability: Line breaks between hook and body? Short first line? Visual pacing? (dwell time = ~10x a like). Wall of text = low.
-- clarity_density: Maximum insight per character. Every sentence carries a distinct idea. No filler, no throat-clearing. "Stop doing X" > "You should probably consider stopping doing X."
-- link_penalty_risk: Does the tweet contain an external URL? No link = 10 (safe). Link present = 0-3 (30-94% reach reduction). "Link in bio/reply" workaround = 7-8.
-
-A tweet scoring below 6 on ANY dimension is unlikely to hit 2x median. Be honest — most tweets are mediocre.
-
-STEP 2 — Convert scores to probability. As a rough guide:
-- All scores 7+: 65-80%
-- Two scores 7+, rest decent: 40-55%
-- One score 7+, rest weak: 20-35%
-- All scores below 6: 5-15%
-- Link penalty risk below 5? Cap probability at 25% (links destroy reach)
-
-Also consider:
-- Author's follower count AND engagement baseline
-- What's currently trending and whether the tweet relates
-- Time of day and whether that's a high-engagement window
-- Time elapsed since posting (older tweets have less room to grow)
-- Your calibration feedback: if your track record shows you're overconfident in a range, adjust down. If underconfident, adjust up. Use your history to improve.
-
-{llm_only_note}
-
-Return JSON:
-{{
-  "hook_strength": <0-10>,
-  "specificity": <0-10>,
-  "emotional_trigger": <0-10>,
-  "reply_inducement": <0-10>,
-  "bookmark_worthiness": <0-10>,
-  "structure_readability": <0-10>,
-  "clarity_density": <0-10>,
-  "link_penalty_risk": <0-10, higher = safer>,
-  "probability": <float 0.0-1.0>,
-  "point_estimate": <integer, your best guess at total impressions after {timeframe}h>,
-  "reasoning": "<2-3 sentences. Reference specific data: which of their past tweets is this most similar to? What makes it better or worse?>",
-  "pattern_analysis": "<1-2 sentences. What specific pattern does their best tweet use that this tweet should match?>",
-  "suggestions": "<Rewrite directive. Don't say 'add a personal touch' or 'be more engaging.' Instead, give the EXACT opening 5-10 words the writer should use, modeled on their best tweet.>"
-}}
-
-Tweet: {text}
-Author: @{username} ({followers} followers, {following} following)
-Author baseline: median {median_impressions:.0f} impressions/tweet, median {median_likes:.0f} likes/tweet, median {median_retweets:.0f} retweets/tweet (sample: {baseline_sample} tweets)
-Author's recent tweets ranked by impressions (best to worst):
-{all_tweets}
-Ecosystem context (across {eco_accounts} Bittensor subnet accounts):
-{ecosystem}
-Media: {media}
-Calibration feedback: {calibration}
-Posted at: {posted_at}
-Time elapsed since posting: {elapsed}
-Timeframe: {timeframe}h
-Target: {target} impressions (2x their median)
-Trending: {trending}"""
+PREDICTION_PROMPT = build_prompt(load_environment())
 
 
 def predict(context: dict, target: int = None, timeframe: int = None) -> dict:

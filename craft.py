@@ -66,6 +66,9 @@ def fetch_author_examples(handle):
 def draft_tweet(client, topic, author, hit_tweet=None, miss_tweet=None, previous_tweet=None, feedback=None):
     """Draft or revise a tweet using an LLM guided by PostProphet's feedback."""
     
+    from postprophet import load_environment
+    env = load_environment()
+    
     # Build reference context
     ref_section = ""
     if hit_tweet or miss_tweet:
@@ -100,6 +103,13 @@ Return only the tweet text, nothing else."""
         # Revision — use PostProphet's feedback to improve
         pattern = feedback.get("pattern_analysis", "")
         verdict = "YES" if feedback.get("probability", 0) >= 0.5 else "NO"
+        # Build scores string dynamically from feedback
+        _score_parts = []
+        for dim in env["dimensions"]:
+            name = dim["name"]
+            short = name.split("_")[0]
+            _score_parts.append(f"{short} {feedback.get(name, 0)}")
+        _scores_str = " | ".join(_score_parts)
         prompt = f"""You are revising a tweet for @{author} on X. The previous version wasn't good enough.
 
 Current tweet:
@@ -107,7 +117,7 @@ Current tweet:
 
 PostProphet feedback (expert editorial guidance):
 - Verdict: {verdict} ({feedback['probability']:.0%} chance of hitting 2x median)
-- Scores (0-10): hook {feedback.get('hook_strength', 0)} | spec {feedback.get('specificity', 0)} | emotion {feedback.get('emotional_trigger', 0)} | reply_inducement {feedback.get('reply_inducement', 0)} | bookmark {feedback.get('bookmark_worthiness', 0)} | structure {feedback.get('structure_readability', 0)} | clarity {feedback.get('clarity_density', 0)} | link_safe {feedback.get('link_penalty_risk', 0)}
+- Scores (0-10): {_scores_str}
 - Reasoning: {feedback['reasoning']}
 - Pattern analysis: {pattern}
 - Suggestion: {feedback['suggestions']}
@@ -192,18 +202,21 @@ def main():
         
         prob = result.get("probability", 0)
         hook = result.get("hook_strength", 0)
-        spec = result.get("specificity", 0)
-        emotion = result.get("emotional_trigger", 0)
-        reply_ind = result.get("reply_inducement", 0)
-        bookmark = result.get("bookmark_worthiness", 0)
-        structure = result.get("structure_readability", 0)
-        clarity = result.get("clarity_density", 0)
-        link_risk = result.get("link_penalty_risk", 0)
         reasoning = result.get("reasoning", "")
         suggestions = result.get("suggestions", "")
         pattern = result.get("pattern_analysis", "")
         
-        print(f"  Scores: hook {hook} | spec {spec} | emotion {emotion} | reply {reply_ind} | bookmark {bookmark} | structure {structure} | clarity {clarity} | link_safe {link_risk}")
+        # Build scores dynamically from environment config
+        from postprophet import load_environment
+        env = load_environment()
+        score_parts = []
+        for dim in env["dimensions"]:
+            name = dim["name"]
+            short = name.split("_")[0]  # First word as label
+            val = result.get(name, 0)
+            score_parts.append(f"{short} {val}")
+        scores_str = " | ".join(score_parts)
+        print(f"  Scores: {scores_str}")
         verdict = "YES" if prob >= 0.5 else "NO"
         print(f"  Prediction: {verdict} ({prob:.0%})")
         print(f"  Reasoning: {reasoning}")
@@ -213,21 +226,16 @@ def main():
             print(f"  Suggestion: {suggestions}")
         print()
         
-        # Prepare feedback for next iteration
+        # Prepare feedback for next iteration (pass through all scores dynamically)
         feedback = {
             "probability": prob,
-            "hook_strength": hook,
-            "specificity": spec,
-            "emotional_trigger": emotion,
-            "reply_inducement": reply_ind,
-            "bookmark_worthiness": bookmark,
-            "structure_readability": structure,
-            "clarity_density": clarity,
-            "link_penalty_risk": link_risk,
             "reasoning": reasoning,
             "suggestions": suggestions,
             "pattern_analysis": pattern,
         }
+        # Pass through all dimension scores from the result
+        for dim in env["dimensions"]:
+            feedback[dim["name"]] = result.get(dim["name"], 0)
         
         if prob >= args.target_confidence:
             print(f"  ✅ Target confidence reached ({prob:.0%} ≥ {args.target_confidence:.0%})")
