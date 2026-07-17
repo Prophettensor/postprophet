@@ -16,13 +16,13 @@
       "range": "0-20%",
       "predicted": 5,
       "actual": 0,
-      "count": 13
+      "count": 9
     },
     {
       "range": "10-30%",
       "predicted": 14,
-      "actual": 24,
-      "count": 194
+      "actual": 20,
+      "count": 174
     },
     {
       "range": "20-40%",
@@ -53,6 +53,87 @@
     {
       "author": "webuildscore",
       "target": 12075,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 6591,
+      "hit": false,
+      "prediction_correct": true,
+      "text": "The skills miners distill daily on SN44 might have cracked the single biggest pain point fuel retailers have.\n\nAt unmanned stations especially, the question they always ask is:\n\n\"Tell me the moment there's a payment terminal issue.\"\n\nThe catch: the payment systems themselves https://t.co/9UNxt5FGZB",
+      "reasoning": "This tweet has a strong hook and is visually engaging due to the infographic, but it lacks a strong emotional trigger and specificity. The author's previous high-performing tweets often feature clearer emotional appeals and concrete details. The presence of an external link also significantly reduces its reach potential.",
+      "suggestions": "The skills miners distill daily on SN44 could revolutionize fuel retail.",
+      "scores": {
+        "hook_strength": 7,
+        "specificity": 6,
+        "emotional_trigger": 5,
+        "reply_inducement": 6,
+        "bookmark_worthiness": 7,
+        "structure_readability": 8,
+        "clarity_density": 6,
+        "link_penalty_risk": 3
+      },
+      "followers": 9108,
+      "elapsed": "421.3h",
+      "has_url": true,
+      "has_external_url": false,
+      "is_quote_tweet": false
+    },
+    {
+      "author": "webuildscore",
+      "target": 12075,
+      "probability": 10,
+      "verdict": "NO",
+      "actual": 6486,
+      "hit": false,
+      "prediction_correct": true,
+      "text": "Our (old) logo would look good in purple \ud83d\udc7e\n\n@krakenfx just added Score SN44 to their listings roadmap.\n\nhttps://t.co/bPEcaZqfw0\n\n$TAO https://t.co/29AE1sLwZE",
+      "reasoning": "This tweet lacks a strong hook and emotional engagement, scoring below 6 on several dimensions. The inclusion of external links also significantly reduces its reach potential. Compared to the author's best tweets, it does not present a compelling narrative or urgency.",
+      "suggestions": "Try starting with 'Exciting news about our logo update!'",
+      "scores": {
+        "hook_strength": 5,
+        "specificity": 4,
+        "emotional_trigger": 3,
+        "reply_inducement": 5,
+        "bookmark_worthiness": 4,
+        "structure_readability": 6,
+        "clarity_density": 5,
+        "link_penalty_risk": 2
+      },
+      "followers": 9108,
+      "elapsed": "437.7h",
+      "has_url": true,
+      "has_external_url": true,
+      "is_quote_tweet": false
+    },
+    {
+      "author": "webuildscore",
+      "target": 12075,
+      "probability": 5,
+      "verdict": "NO",
+      "actual": 4249,
+      "hit": false,
+      "prediction_correct": true,
+      "text": "It\u2019s in the news now \ud83d\uddde\ufe0f https://t.co/wP47nCfgQq",
+      "reasoning": "This tweet lacks a strong hook, specificity, and emotional engagement, which are critical for high reach. It is similar to the author's lower-performing tweets that also contained links and vague statements. The absence of compelling content and the presence of an external link significantly reduce its potential reach.",
+      "suggestions": "Start with a bold statement about the news: 'Big news in AI today!'",
+      "scores": {
+        "hook_strength": 3,
+        "specificity": 2,
+        "emotional_trigger": 2,
+        "reply_inducement": 1,
+        "bookmark_worthiness": 1,
+        "structure_readability": 4,
+        "clarity_density": 3,
+        "link_penalty_risk": 2
+      },
+      "followers": 9108,
+      "elapsed": "439.2h",
+      "has_url": true,
+      "has_external_url": false,
+      "is_quote_tweet": true
+    },
+    {
+      "author": "webuildscore",
+      "target": 12075,
       "probability": 15,
       "verdict": "NO",
       "actual": 6120,
@@ -73,60 +154,6 @@
       },
       "followers": 9108,
       "elapsed": "495.2h",
-      "has_url": true,
-      "has_external_url": false,
-      "is_quote_tweet": true
-    },
-    {
-      "author": "webuildscore",
-      "target": 12075,
-      "probability": 10,
-      "verdict": "NO",
-      "actual": 106087,
-      "hit": true,
-      "prediction_correct": false,
-      "text": "https://t.co/ExmKPltU0U",
-      "reasoning": "The tweet lacks a strong hook and emotional trigger, which are critical for engagement. It is similar to the author's lower-performing tweets that also had less impactful openings and vague content. The presence of an external link further reduces its reach potential significantly.",
-      "suggestions": "Start with a bold statement about the update's impact on vision AI.",
-      "scores": {
-        "hook_strength": 6,
-        "specificity": 5,
-        "emotional_trigger": 4,
-        "reply_inducement": 5,
-        "bookmark_worthiness": 6,
-        "structure_readability": 5,
-        "clarity_density": 5,
-        "link_penalty_risk": 2
-      },
-      "followers": 9108,
-      "elapsed": "526.1h",
-      "has_url": true,
-      "has_external_url": false,
-      "is_quote_tweet": false
-    },
-    {
-      "author": "webuildscore",
-      "target": 12075,
-      "probability": 5,
-      "verdict": "NO",
-      "actual": 2650,
-      "hit": false,
-      "prediction_correct": true,
-      "text": "K O T H https://t.co/yhlHcPdqHQ",
-      "reasoning": "This tweet lacks a clear hook, specificity, and emotional engagement, making it unlikely to resonate with the audience. It is a simple phrase followed by a link, which does not align with the author's more successful tweets that provide concrete updates or insights.",
-      "suggestions": "Start with a bold statement about your latest project or update.",
-      "scores": {
-        "hook_strength": 2,
-        "specificity": 1,
-        "emotional_trigger": 1,
-        "reply_inducement": 1,
-        "bookmark_worthiness": 1,
-        "structure_readability": 3,
-        "clarity_density": 2,
-        "link_penalty_risk": 2
-      },
-      "followers": 9108,
-      "elapsed": "576.3h",
       "has_url": true,
       "has_external_url": false,
       "is_quote_tweet": true
@@ -238,33 +265,6 @@
       "has_url": true,
       "has_external_url": false,
       "is_quote_tweet": true
-    },
-    {
-      "author": "yanez__ai",
-      "target": 5653,
-      "probability": 15,
-      "verdict": "NO",
-      "actual": 2766,
-      "hit": false,
-      "prediction_correct": true,
-      "text": "https://t.co/8Um5SJXCsb",
-      "reasoning": "This tweet lacks a strong hook and emotional engagement, scoring below 6 on several dimensions. It does not present specific data or a compelling narrative that would resonate with the audience. The author's previous tweets that performed well had clearer, more engaging content.",
-      "suggestions": "Start with 'Exciting news about our latest product update!'",
-      "scores": {
-        "hook_strength": 6,
-        "specificity": 5,
-        "emotional_trigger": 4,
-        "reply_inducement": 5,
-        "bookmark_worthiness": 4,
-        "structure_readability": 5,
-        "clarity_density": 5,
-        "link_penalty_risk": 2
-      },
-      "followers": 1842,
-      "elapsed": "412.4h",
-      "has_url": true,
-      "has_external_url": false,
-      "is_quote_tweet": false
     },
     {
       "author": "yanez__ai",
@@ -592,11 +592,11 @@
     }
   ],
   "stats": {
-    "total_resolved": 456,
-    "new_arch_resolved": 456,
-    "new_arch_brier": 0.183,
-    "pending": 20,
-    "hit_rate": 23,
+    "total_resolved": 432,
+    "new_arch_resolved": 432,
+    "new_arch_brier": 0.1724,
+    "pending": 17,
+    "hit_rate": 21,
     "last_updated": "2026-07-17T22:30:47.187884+00:00"
   }
 }

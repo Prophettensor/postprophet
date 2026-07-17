@@ -1551,6 +1551,12 @@ def backfill_predictions(max_tweets_per_account: int = 20):
                 stats["skipped"] += 1
                 continue
             
+            # Skip link-only tweets (no text to evaluate)
+            import re as _re
+            clean_text = _re.sub(r'https?://\S+', '', tweet.get("text", "")).strip()
+            if len(clean_text) < 15:
+                continue  # Can't predict on a bare URL
+            
             # This tweet is >24h old — impressions are final
             actual_impressions = tweet.get("public_metrics", {}).get("impression_count", 0)
             
