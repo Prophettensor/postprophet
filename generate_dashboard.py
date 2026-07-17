@@ -84,6 +84,8 @@ def main():
             "followers": p.get("followers_at_prediction", p["context"]["author"].get("followers", 0)),
             "elapsed": p.get("elapsed_at_prediction", ""),
             "has_url": p.get("has_url", False),
+            "has_external_url": p.get("has_external_url", False),
+            "is_quote_tweet": p.get("is_quote_tweet", False),
         })
 
     # Overall new arch Brier

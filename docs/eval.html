@@ -310,6 +310,8 @@ fetch('dashboard-data.json')
     if (p.followers) meta.push(fmt(p.followers) + ' followers');
     if (p.elapsed) meta.push('predicted ' + p.elapsed + ' after post');
     if (p.has_url) meta.push('has URL');
+    if (p.is_quote_tweet) meta.push('quote tweet');
+    if (p.has_external_url) meta.push('external link');
 
     card.innerHTML = `
       <div class="pred-header">

@@ -44,7 +44,7 @@
     {
       "name": "link_penalty_risk",
       "category": "Algorithm signals",
-      "description": "Does the tweet contain an external URL? No link = 10 (safe). Link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."
+      "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet)? No link or quote tweet only = 10 (safe). External link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."
     }
   ],
   "probability_guide": [

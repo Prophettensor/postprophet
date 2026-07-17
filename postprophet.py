@@ -318,6 +318,8 @@ def capture_from_accounts():
             "author_recent_top_tweets": recent_samples,
             "author_all_tweets": all_tweet_samples,
             "media": media_info,
+            "entities": latest.get("entities", {}),
+            "referenced_tweets": latest.get("referenced_tweets", []),
             "trending_topics": trending,
             "has_x_data": True,
         }
@@ -366,6 +368,13 @@ def capture_from_accounts():
             "followers_at_prediction": context["author"]["followers"],
             "elapsed_at_prediction": elapsed_str,
             "has_url": "http" in context["text"] or "https" in context["text"],
+            "has_external_url": any(
+                u.get("expanded_url", "") and not any(d in u["expanded_url"] for d in ["x.com", "twitter.com"])
+                for u in context.get("entities", {}).get("urls", [])
+            ) if context.get("entities") else ("http" in context["text"] or "https" in context["text"]),
+            "is_quote_tweet": any(
+                r.get("type") == "quoted" for r in context.get("referenced_tweets", [])
+            ) if context.get("referenced_tweets") else False,
             "context": context,
             "prediction": prediction,
             "resolve_after": (
@@ -1429,6 +1438,13 @@ def capture_phase():
             "followers_at_prediction": context["author"]["followers"],
             "elapsed_at_prediction": elapsed_str,
             "has_url": "http" in context["text"] or "https" in context["text"],
+            "has_external_url": any(
+                u.get("expanded_url", "") and not any(d in u["expanded_url"] for d in ["x.com", "twitter.com"])
+                for u in context.get("entities", {}).get("urls", [])
+            ) if context.get("entities") else ("http" in context["text"] or "https" in context["text"]),
+            "is_quote_tweet": any(
+                r.get("type") == "quoted" for r in context.get("referenced_tweets", [])
+            ) if context.get("referenced_tweets") else False,
             "context": context,
             "prediction": prediction,
             "resolve_after": (
