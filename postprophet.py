@@ -18,6 +18,7 @@ from openai import OpenAI
 X_BEARER_TOKEN = os.environ.get("X_BEARER_TOKEN", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("POSTPROPHET_MODEL", "gpt-4o-mini")
+HARNESS_VERSION = "v1"  # Bump when prompt, context, or scoring changes
 TIMEFRAME_HOURS = int(os.environ.get("POSTPROPHET_TIMEFRAME", "24"))
 TARGET_IMPRESSIONS = int(os.environ.get("POSTPROPHET_TARGET", "10000"))
 BATCH_SIZE = int(os.environ.get("POSTPROPHET_BATCH", "20"))
@@ -365,6 +366,7 @@ def capture_from_accounts():
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": dynamic_target,
             "model": OPENAI_MODEL,
+            "harness_version": HARNESS_VERSION,
             "followers_at_prediction": context["author"]["followers"],
             "elapsed_at_prediction": elapsed_str,
             "has_url": "http" in context["text"] or "https" in context["text"],
@@ -1435,6 +1437,7 @@ def capture_phase():
             "timeframe_hours": TIMEFRAME_HOURS,
             "target": TARGET_IMPRESSIONS,
             "model": OPENAI_MODEL,
+            "harness_version": HARNESS_VERSION,
             "followers_at_prediction": context["author"]["followers"],
             "elapsed_at_prediction": elapsed_str,
             "has_url": "http" in context["text"] or "https" in context["text"],
@@ -1516,10 +1519,11 @@ def resolve_phase():
 
     # Save score record
     score_record = {
-        "scored_at": now.isoformat(),
+        "scored_at": datetime.now(timezone.utc).isoformat(),
         "batch_size": len(resolved_batch),
         "brier_score": score,
         "model": OPENAI_MODEL,
+        "harness_version": HARNESS_VERSION,
         "timeframe_hours": TIMEFRAME_HOURS,
         "target": TARGET_IMPRESSIONS,
     }
