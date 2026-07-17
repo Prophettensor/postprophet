@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "hash": "v_2e2c9363",
+  "dimensions": [
+    {"name": "hook_strength", "category": "Content quality", "description": "Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets. A bold claim, surprising data, or personal announcement = high. Vague statements = low."},
+    {"name": "specificity", "category": "Content quality", "description": "Does it say something concrete? Named products, numbers, events = high. General statements about 'innovation' or 'decentralization' = low."},
+    {"name": "emotional_trigger", "category": "Content quality", "description": "Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)"},
+    {"name": "reply_inducement", "category": "Algorithm signals", "description": "Does it invite response? Open questions, contrarian claims, fill-in-the-blank formats = high (replies are worth 27-150x a like). 'Thoughts?' or 'Anyone else?' = low. Specific, answerable questions = high."},
+    {"name": "bookmark_worthiness", "category": "Algorithm signals", "description": "Is it reference-worthy? Frameworks, data points, lists, how-tos, actionable takeaways = high (bookmarks = 10-12x a like). Opinion-only or news reactions = low."},
+    {"name": "structure_readability", "category": "Algorithm signals", "description": "Line breaks between hook and body? Short first line? Visual pacing? (dwell time = ~10x a like). Wall of text = low."},
+    {"name": "clarity_density", "category": "Algorithm signals", "description": "Maximum insight per character. Every sentence carries a distinct idea. No filler, no throat-clearing. 'Stop doing X' > 'You should probably consider stopping doing X.'"},
+    {"name": "link_penalty_risk", "category": "Algorithm signals", "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet)? No link or quote tweet only = 10 (safe). External link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."}
+  ],
+  "probability_guide": [
+    "All scores 7+: 65-80%",
+    "Two scores 7+, rest decent: 40-55%",
+    "One score 7+, rest weak: 20-35%",
+    "All scores below 6: 5-15%",
+    "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
+  ],
+  "extra_considerations": [
+    "Author's follower count AND engagement baseline",
+    "What's currently trending and whether the tweet relates",
+    "Time of day and whether that's a high-engagement window",
+    "Time elapsed since posting (older tweets have less room to grow)",
+    "Your calibration feedback: if your track record shows you're overconfident in a range, adjust down. If underconfident, adjust up. Use your history to improve."
+  ]
+}

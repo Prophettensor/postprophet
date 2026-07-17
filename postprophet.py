@@ -366,6 +366,7 @@ def capture_from_accounts():
             "target": dynamic_target,
             "model": OPENAI_MODEL,
             "harness_version": HARNESS_VERSION,
+            "harness_hash": HARNESS_HASH,
             "followers_at_prediction": context["author"]["followers"],
             "elapsed_at_prediction": elapsed_str,
             "has_url": "http" in context["text"] or "https" in context["text"],
@@ -993,18 +994,15 @@ def build_prompt(env: dict) -> str:
 PREDICTION_PROMPT = build_prompt(load_environment())
 
 
-def _compute_harness_version() -> str:
-    """Compute a version hash from the prompt template + environment config.
-    
-    The version is deterministic: same prompt + same dimensions = same version.
-    Any change to what the model sees produces a new version automatically.
-    Miners can't manually bump or claim a version — it's derived from the inputs.
-    """
+# ── Versioning ───────────────────────────────────────────────────────────
+
+
+def _compute_config_hash() -> str:
+    """Compute a hash of the current environment config."""
     import hashlib
     env = load_environment()
-    prompt = build_prompt(env)
     version_input = json.dumps({
-        "prompt": prompt,
+        "prompt": build_prompt(env),
         "dimensions": env.get("dimensions", []),
         "probability_guide": env.get("probability_guide", []),
         "extra_considerations": env.get("extra_considerations", []),
@@ -1012,7 +1010,110 @@ def _compute_harness_version() -> str:
     return "v_" + hashlib.sha256(version_input.encode()).hexdigest()[:8]
 
 
-HARNESS_VERSION = _compute_harness_version()
+def load_version() -> dict:
+    """Load the stored version info from .version file."""
+    version_path = os.path.join(os.path.dirname(__file__), ".version")
+    if os.path.exists(version_path):
+        with open(version_path) as f:
+            return json.load(f)
+    return {"version": "1.0.0", "hash": _compute_config_hash()}
+
+
+def compute_version_bump(current: dict, new_env: dict) -> tuple[str, str]:
+    """Determine what semver bump is needed when config changes.
+    
+    Returns (new_version, change_description).
+    
+    Rules:
+    - Major (1.x.x): dimensions added or removed
+    - Minor (x.1.x): dimension descriptions or probability guide changed
+    - Patch (x.x.1): prompt wording changed (same structure)
+    """
+    old_dims = {d["name"] for d in current.get("dimensions", [])}
+    new_dims = {d["name"] for d in new_env.get("dimensions", [])}
+    
+    old_version = current.get("version", "1.0.0")
+    parts = [int(x) for x in old_version.split(".")]
+    
+    if old_dims != new_dims:
+        added = new_dims - old_dims
+        removed = old_dims - new_dims
+        changes = []
+        if added:
+            changes.append(f"added: {', '.join(sorted(added))}")
+        if removed:
+            changes.append(f"removed: {', '.join(sorted(removed))}")
+        parts[0] += 1
+        parts[1] = 0
+        parts[2] = 0
+        return f"{parts[0]}.{parts[1]}.{parts[2]}", f"Major: {'; '.join(changes)}"
+    
+    # Check if dimension descriptions changed (minor)
+    old_descs = {d["name"]: d.get("description", "") for d in current.get("dimensions", [])}
+    new_descs = {d["name"]: d.get("description", "") for d in new_env.get("dimensions", [])}
+    
+    old_guide = current.get("probability_guide", [])
+    new_guide = new_env.get("probability_guide", [])
+    old_considerations = current.get("extra_considerations", [])
+    new_considerations = new_env.get("extra_considerations", [])
+    
+    if old_descs != new_descs or old_guide != new_guide or old_considerations != new_considerations:
+        changes = []
+        for name in old_descs:
+            if old_descs.get(name, "") != new_descs.get(name, ""):
+                changes.append(f"{name} description changed")
+        if old_guide != new_guide:
+            changes.append("probability guide changed")
+        if old_considerations != new_considerations:
+            changes.append("considerations changed")
+        parts[1] += 1
+        parts[2] = 0
+        return f"{parts[0]}.{parts[1]}.{parts[2]}", f"Minor: {'; '.join(changes)}"
+    
+    # Only prompt wording changed (patch)
+    parts[2] += 1
+    return f"{parts[0]}.{parts[1]}.{parts[2]}", "Patch: prompt wording changed"
+
+
+def save_version(env: dict):
+    """Save current config as the new .version baseline."""
+    version_path = os.path.join(os.path.dirname(__file__), ".version")
+    version_data = {
+        "version": load_version().get("version", "1.0.0"),
+        "hash": _compute_config_hash(),
+        "dimensions": env.get("dimensions", []),
+        "probability_guide": env.get("probability_guide", []),
+        "extra_considerations": env.get("extra_considerations", []),
+    }
+    with open(version_path, "w") as f:
+        json.dump(version_data, f, indent=2)
+
+
+def get_harness_version() -> str:
+    """Get the current harness version string (e.g., '1.0.0')."""
+    return load_version().get("version", "1.0.0")
+
+
+def get_harness_hash() -> str:
+    """Get the current config hash (e.g., 'v_2e2c9363')."""
+    return _compute_config_hash()
+
+
+def check_version_changed() -> tuple[str, str] | None:
+    """Check if the current config differs from the stored .version.
+    Returns (new_version, description) if changed, None if same."""
+    stored = load_version()
+    current_hash = _compute_config_hash()
+    if stored.get("hash") == current_hash:
+        return None
+    
+    env = load_environment()
+    new_version, description = compute_version_bump(stored, env)
+    return new_version, description
+
+
+HARNESS_VERSION = get_harness_version()
+HARNESS_HASH = get_harness_hash()
 
 
 def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
@@ -1364,7 +1465,161 @@ def format_calibration_for_prompt(cal: dict) -> str:
     return "\n".join(lines)
 
 
-# ── Harness: the main loop ──────────────────────────────────────────────
+# ── Eval: run harness against frozen eval set ────────────────────────────
+
+
+EVAL_FILE = os.path.join(DATA_DIR, "eval_set.jsonl")
+
+
+def build_eval_set(predictions: list[dict] = None, min_size: int = 50):
+    """Build or update the frozen eval set from resolved predictions.
+    
+    The eval set is a snapshot of resolved predictions used to score PRs.
+    Miners never see which tweets are in the eval set.
+    
+    Takes the most recent resolved predictions up to min_size.
+    Refreshed periodically (not on every run) to prevent overfitting.
+    """
+    if predictions is None:
+        predictions = load_predictions()
+    
+    resolved = [p for p in predictions if p.get("resolved") is True]
+    if len(resolved) < 10:
+        print(f"  Not enough resolved predictions for eval set ({len(resolved)}/10 min)")
+        return
+    
+    # Take most recent resolved, up to min_size
+    eval_preds = sorted(resolved, key=lambda p: p.get("resolved_at", p.get("predicted_at", "")), reverse=True)[:min_size]
+    
+    # Strip the prediction (probability) — eval re-runs the harness
+    # Keep: tweet text, author, baseline, target, actual impressions
+    eval_set = []
+    for p in eval_preds:
+        eval_set.append({
+            "tweet_id": p["tweet_id"],
+            "text": p["context"]["text"],
+            "author": p["context"]["author"],
+            "author_baseline": p["context"].get("author_baseline", {}),
+            "author_all_tweets": p["context"].get("author_all_tweets", []),
+            "author_recent_top_tweets": p["context"].get("author_recent_top_tweets", []),
+            "media": p["context"].get("media", {}),
+            "target": p["target"],
+            "actual_impressions": p["actual_impressions"],
+            "hit": p["actual_impressions"] >= p["target"],
+            "created_at": p["context"].get("created_at", ""),
+            "original_probability": p["prediction"]["probability"],
+            "original_version": p.get("harness_version", "unknown"),
+        })
+    
+    with open(EVAL_FILE, "w") as f:
+        for item in eval_set:
+            f.write(json.dumps(item) + "\n")
+    
+    print(f"  Eval set: {len(eval_set)} predictions saved to {EVAL_FILE}")
+    print(f"  Version: {HARNESS_VERSION} ({HARNESS_HASH})")
+
+
+def run_eval() -> dict:
+    """Run the current harness against the frozen eval set.
+    
+    Re-predicts each tweet in the eval set using the current prompt/config,
+    then computes Brier score. Used to evaluate PRs.
+    
+    Returns {version, hash, brier, count, results}
+    """
+    if not os.path.exists(EVAL_FILE):
+        print("  No eval set found. Run 'python postprophet.py eval-set' first.")
+        return {}
+    
+    with open(EVAL_FILE) as f:
+        eval_items = [json.loads(line) for line in f if line.strip()]
+    
+    if not eval_items:
+        print("  Eval set is empty.")
+        return {}
+    
+    print(f"\n  Running eval: {len(eval_items)} predictions")
+    print(f"  Harness: {HARNESS_VERSION} ({HARNESS_HASH})")
+    print()
+    
+    results = []
+    total_brier = 0.0
+    
+    for i, item in enumerate(eval_items, 1):
+        # Build context from eval item (no engagement leakage)
+        context = {
+            "tweet_id": item["tweet_id"],
+            "text": item["text"],
+            "created_at": item["created_at"],
+            "planned_post_time": item["created_at"],
+            "platform": "x",
+            "author": item["author"],
+            "author_baseline": item["author_baseline"],
+            "author_recent_top_tweets": item.get("author_recent_top_tweets", []),
+            "author_all_tweets": item.get("author_all_tweets", []),
+            "media": item.get("media", {"has_media": False, "media_types": [], "descriptions": []}),
+            "entities": {},
+            "referenced_tweets": [],
+            "trending_topics": [],
+            "has_x_data": True,
+        }
+        
+        # Predict
+        try:
+            prediction = predict(context, target=item["target"])
+            prob = prediction.get("probability", 0.5)
+        except Exception as e:
+            print(f"  [{i}/{len(eval_items)}] Error: {e}")
+            prob = 0.5
+        
+        actual = 1.0 if item["hit"] else 0.0
+        brier_contrib = (prob - actual) ** 2
+        total_brier += brier_contrib
+        results.append({
+            "tweet_id": item["tweet_id"],
+            "author": item["author"]["username"],
+            "probability": prob,
+            "actual": actual,
+            "brier": brier_contrib,
+            "hit": item["hit"],
+            "target": item["target"],
+            "actual_impressions": item["actual_impressions"],
+        })
+        
+        verdict = "YES" if prob >= 0.5 else "NO"
+        print(f"  [{i}/{len(eval_items)}] @{item['author']['username']}: {verdict} ({prob:.0%}) | target {item['target']:,} | actual {item['actual_impressions']:,} | {'✅' if (prob >= 0.5) == item['hit'] else '❌'}")
+    
+    brier = total_brier / len(results)
+    
+    # Compare to original
+    original_brier = sum(
+        (item["original_probability"] - (1.0 if item["hit"] else 0.0)) ** 2
+        for item in eval_items
+    ) / len(eval_items)
+    
+    print()
+    print(f"  ────────────────────────────────────────")
+    print(f"  Eval results: {len(results)} predictions")
+    print(f"  Current harness:  {HARNESS_VERSION} ({HARNESS_HASH})")
+    print(f"  Brier:            {brier:.4f}")
+    print(f"  Original:         {eval_items[0].get('original_version', '?')} → {original_brier:.4f}")
+    delta = original_brier - brier
+    if delta > 0:
+        print(f"  Improvement:      {delta:.4f} ✅")
+    elif delta < 0:
+        print(f"  Regression:       {abs(delta):.4f} ❌")
+    else:
+        print(f"  No change.")
+    print(f"  ────────────────────────────────────────")
+    
+    return {
+        "version": HARNESS_VERSION,
+        "hash": HARNESS_HASH,
+        "brier": brier,
+        "original_brier": original_brier,
+        "count": len(results),
+        "results": results,
+    }
 
 
 def ensure_dirs():
@@ -1459,6 +1714,7 @@ def capture_phase():
             "target": TARGET_IMPRESSIONS,
             "model": OPENAI_MODEL,
             "harness_version": HARNESS_VERSION,
+            "harness_hash": HARNESS_HASH,
             "followers_at_prediction": context["author"]["followers"],
             "elapsed_at_prediction": elapsed_str,
             "has_url": "http" in context["text"] or "https" in context["text"],
@@ -1837,7 +2093,39 @@ Environment:
 
     cmd = sys.argv[1]
 
-    if cmd == "add":
+    if cmd == "eval-set":
+        build_eval_set()
+    elif cmd == "eval":
+        run_eval()
+    elif cmd == "version":
+        changed = check_version_changed()
+        if changed:
+            new_ver, desc = changed
+            print(f"  Current: {HARNESS_VERSION} ({HARNESS_HASH})")
+            print(f"  Config changed → {new_ver}")
+            print(f"  {desc}")
+            print(f"\n  Run 'python postprophet.py commit-version' to accept")
+        else:
+            print(f"  Current: {HARNESS_VERSION} ({HARNESS_HASH})")
+            print(f"  No changes.")
+    elif cmd == "commit-version":
+        changed = check_version_changed()
+        if not changed:
+            print("  No changes to commit.")
+        else:
+            new_ver, desc = changed
+            env = load_environment()
+            version_data = load_version()
+            version_data["version"] = new_ver
+            version_data["hash"] = _compute_config_hash()
+            version_data["dimensions"] = env["dimensions"]
+            version_data["probability_guide"] = env.get("probability_guide", [])
+            version_data["extra_considerations"] = env.get("extra_considerations", [])
+            with open(os.path.join(os.path.dirname(__file__), ".version"), "w") as f:
+                json.dump(version_data, f, indent=2)
+            print(f"  Committed: {new_ver} ({version_data['hash']})")
+            print(f"  {desc}")
+    elif cmd == "add":
         # Add accounts to tracking list and fetch their data
         if len(sys.argv) < 3:
             print("Usage: python postprophet.py add <handle1> [handle2] [handle3] ...")
