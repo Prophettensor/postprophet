@@ -320,7 +320,7 @@ fetch('dashboard-data.json')
         </div>
         <div class="pred-spacer"></div>
         <div class="pred-verdict ${p.verdict.toLowerCase()}">${p.verdict} ${p.probability}%</div>
-        <div class="pred-result">${p.hit ? '✅' : '❌'}</div>
+        <div class="pred-result">${p.prediction_correct ? '✅' : '❌'}</div>
         <div class="pred-expand-hint">▼</div>
       </div>
       <div class="pred-body">

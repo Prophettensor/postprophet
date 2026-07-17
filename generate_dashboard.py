@@ -57,6 +57,10 @@ def main():
         pred = p["prediction"]
         hit = p["actual_impressions"] >= p["target"]
         verdict = "YES" if pred["probability"] >= 0.5 else "NO"
+        # Prediction is correct if:
+        # - Said YES (>=50%) and tweet hit, OR
+        # - Said NO (<50%) and tweet missed
+        prediction_correct = (verdict == "YES" and hit) or (verdict == "NO" and not hit)
         text = p["context"]["text"]
         # Build scores dict
         dim_scores = {}
@@ -72,6 +76,7 @@ def main():
             "verdict": verdict,
             "actual": p["actual_impressions"],
             "hit": hit,
+            "prediction_correct": prediction_correct,
             "text": text,
             "reasoning": pred.get("reasoning", ""),
             "suggestions": pred.get("suggestions", ""),
