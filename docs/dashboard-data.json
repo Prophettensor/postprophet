@@ -1,0 +1,125 @@
+{
+  "brier_history": [
+    {
+      "date": "2026-07-16",
+      "brier": 0.1897,
+      "batch_size": 17
+    },
+    {
+      "date": "2026-07-16",
+      "brier": 0.2492,
+      "batch_size": 3
+    },
+    {
+      "date": "2026-07-17",
+      "brier": 0.2614,
+      "batch_size": 18
+    },
+    {
+      "date": "2026-07-17",
+      "brier": 0.0778,
+      "batch_size": 8
+    },
+    {
+      "date": "2026-07-17",
+      "brier": 0.1421,
+      "batch_size": 6
+    }
+  ],
+  "calibration": [
+    {
+      "range": "10-30%",
+      "predicted": 15,
+      "actual": 0,
+      "count": 2
+    },
+    {
+      "range": "20-40%",
+      "predicted": 24,
+      "actual": 17,
+      "count": 6
+    }
+  ],
+  "recent_predictions": [
+    {
+      "author": "endurenet",
+      "target": 1393,
+      "probability": 15,
+      "verdict": "NO",
+      "actual": 255,
+      "hit": false,
+      "text": "Most risk intelligence cannot be proven wrong.\n\nA firm publishes a report, a com..."
+    },
+    {
+      "author": "aureliusaligned",
+      "target": 3110,
+      "probability": 15,
+      "verdict": "NO",
+      "actual": 258,
+      "hit": false,
+      "text": "Check out the surprising result of our first competition with @Apex_SN1 on devel..."
+    },
+    {
+      "author": "yanez__ai",
+      "target": 5724,
+      "probability": 20,
+      "verdict": "NO",
+      "actual": 2657,
+      "hit": false,
+      "text": "\"My head is my seed phrase.\" -Mark Jeffrey (@markjeffrey), Hashrate host\n\nJose (..."
+    },
+    {
+      "author": "bitsecai",
+      "target": 7984,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 2924,
+      "hit": false,
+      "text": "A security audit is a snapshot\n\nThe moment new code ships, that snapshot risks e..."
+    },
+    {
+      "author": "nodexo",
+      "target": 2707,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 14626,
+      "hit": true,
+      "text": "Want to mine Nodexo? Here's exactly how. \n\nGo from a blank server to a live, ear..."
+    },
+    {
+      "author": "minotaursubnet",
+      "target": 1906,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 897,
+      "hit": false,
+      "text": "Big update from the Minotaur team! \n\nFollowing the restoration of emissions and ..."
+    },
+    {
+      "author": "sundaebar_ai",
+      "target": 421,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 229,
+      "hit": false,
+      "text": "Want to participate in a #SN121 challenge? Here\u2019s a breakdown on how to earn.\n\nR..."
+    },
+    {
+      "author": "swarmsubnet",
+      "target": 2630,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 2338,
+      "hit": false,
+      "text": "Starting today, SWARM enters a new chapter.\n\nWe are expanding beyond autonomous ..."
+    }
+  ],
+  "stats": {
+    "total_resolved": 52,
+    "new_arch_resolved": 8,
+    "new_arch_brier": 0.1122,
+    "pending": 20,
+    "hit_rate": 12,
+    "last_updated": "2026-07-17T18:58:17.485220+00:00"
+  }
+}

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PostProphet — Live Eval</title>
+<meta name="theme-color" content="#0a0a0a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root {
+  --bg:#0a0a0a; --bg-card:#141414; --bg-elevated:#1c1c1c;
+  --text:#f0ece4; --text-secondary:#a8a39a; --text-tertiary:#6a655e;
+  --border:#262626; --border-strong:#363636;
+  --accent:#818cf8; --accent-hover:#6366f1;
+  --green:#4ade80; --red:#f87171; --yellow:#fbbf24;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono{font-family:'JetBrains Mono',monospace}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,10,10,0.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+nav .inner{max-width:900px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.logo{text-decoration:none;color:var(--text);font-weight:800;font-size:1.05em;letter-spacing:-.02em}
+nav .links{display:flex;gap:24px;align-items:center}
+nav .links a{color:var(--text-secondary);text-decoration:none;font-size:.92em;font-weight:500}
+nav .links a:hover{color:var(--text)}
+
+.container{max-width:900px;margin:0 auto;padding:0 24px}
+
+.hero{padding:100px 0 40px;text-align:center}
+.hero h1{font-size:2.4em;font-weight:900;letter-spacing:-.03em;margin-bottom:8px}
+.hero p{color:var(--text-secondary);font-size:1.05em}
+.live-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:rgba(74,222,128,0.1);color:var(--green);border-radius:100px;font-size:.78em;font-weight:600;margin-bottom:16px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:40px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
+.stat-card .label{font-size:.72em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:6px}
+.stat-card .value{font-size:1.8em;font-weight:800}
+.stat-card .value.green{color:var(--green)}
+.stat-card .value.red{color:var(--red)}
+.stat-card .sub{font-size:.78em;color:var(--text-tertiary);margin-top:4px}
+
+.section{padding:30px 0}
+.section-title{font-size:1.3em;font-weight:700;margin-bottom:16px;letter-spacing:-.02em}
+.section-sub{color:var(--text-secondary);font-size:.92em;margin-bottom:20px}
+
+.chart-container{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:30px}
+.chart-container canvas{max-height:300px}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 12px;font-size:.78em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;border-bottom:1px solid var(--border)}
+td{padding:12px;border-bottom:1px solid var(--border);font-size:.9em}
+td.author{color:var(--accent);font-weight:600}
+td.verdict-yes{color:var(--green);font-weight:600}
+td.verdict-no{color:var(--yellow);font-weight:600}
+td.hit{color:var(--green)}
+td.miss{color:var(--red)}
+
+.cal-row{display:flex;align-items:center;gap:12px;padding:8px 0}
+.cal-label{width:80px;font-size:.85em;color:var(--text-secondary);font-family:'JetBrains Mono',monospace}
+.cal-bar-container{flex:1;height:24px;background:var(--bg-elevated);border-radius:6px;overflow:hidden;position:relative}
+.cal-bar-predicted{height:100%;background:rgba(129,140,248,0.3);border-right:2px solid var(--accent);transition:width 0.5s}
+.cal-bar-actual{position:absolute;top:0;bottom:0;background:rgba(74,222,128,0.2);border-right:2px solid var(--green);transition:width 0.5s}
+.cal-value{width:100px;font-size:.8em;color:var(--text-secondary);font-family:'JetBrains Mono',monospace}
+
+footer{border-top:1px solid var(--border);padding:30px 0;text-align:center;color:var(--text-tertiary);font-size:.85em}
+
+@media(max-width:640px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .hero h1{font-size:1.8em}
+  table{font-size:.8em}
+  td,th{padding:8px 6px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a href="/postprophet/" class="logo">PostProphet</a>
+    <div class="links">
+      <a href="/postprophet/">Home</a>
+      <a href="https://github.com/buckZz7/postprophet">GitHub</a>
+      <a href="https://github.com/buckZz7/postprophet-data">Data</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="hero">
+    <div class="live-badge">
+      <span class="live-dot"></span>
+      LIVE EVAL
+    </div>
+    <h1>Prediction Accuracy</h1>
+    <p>Real tweets. Real predictions. Real Brier scores. Updated every 12h.</p>
+  </div>
+
+  <div class="stats-row" id="stats">
+    <div class="stat-card">
+      <div class="label">Resolved</div>
+      <div class="value" id="stat-resolved">-</div>
+      <div class="sub">predictions scored</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Brier (current)</div>
+      <div class="value green" id="stat-brier">-</div>
+      <div class="sub">0 = perfect</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Pending</div>
+      <div class="value" id="stat-pending">-</div>
+      <div class="sub">awaiting resolution</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Hit Rate</div>
+      <div class="value" id="stat-hitrate">-</div>
+      <div class="sub">of all resolved</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Brier Score Over Time</h2>
+    <p class="section-sub">Lower is better. 0.25 = no skill (coin flip). 0 = perfect prediction. Old architecture batches shown for comparison.</p>
+    <div class="chart-container">
+      <canvas id="brierChart"></canvas>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Calibration</h2>
+    <p class="section-sub">When the model says X%, how often does it actually hit? Perfect calibration = predicted matches actual.</p>
+    <div class="chart-container">
+      <canvas id="calChart"></canvas>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Recent Predictions</h2>
+    <p class="section-sub">Latest resolved predictions with the current architecture.</p>
+    <div class="chart-container" style="padding:0;overflow:hidden">
+      <table>
+        <thead>
+          <tr>
+            <th>Author</th>
+            <th>Tweet</th>
+            <th>Verdict</th>
+            <th>Prob</th>
+            <th>Target</th>
+            <th>Actual</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody id="preds-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    PostProphet — Open source. MIT licensed. <a href="https://github.com/buckZz7/postprophet" style="color:var(--text-secondary)">GitHub</a>
+  </footer>
+</div>
+
+<script>
+fetch('dashboard-data.json')
+.then(r => r.json())
+.then(data => {
+  // Stats
+  document.getElementById('stat-resolved').textContent = data.stats.total_resolved;
+  document.getElementById('stat-brier').textContent = data.stats.new_arch_brier.toFixed(3);
+  document.getElementById('stat-pending').textContent = data.stats.pending;
+
+  const hits = data.recent_predictions.filter(p => p.hit).length;
+  const total = data.recent_predictions.length;
+  document.getElementById('stat-hitrate').textContent = total > 0 ? Math.round(hits/total*100) + '%' : '-';
+
+  // Brier chart
+  const brierLabels = data.brier_history.map(b => b.date);
+  const brierValues = data.brier_history.map(b => b.brier);
+  new Chart(document.getElementById('brierChart'), {
+    type: 'line',
+    data: {
+      labels: brierLabels,
+      datasets: [{
+        label: 'Brier Score',
+        data: brierValues,
+        borderColor: '#818cf8',
+        backgroundColor: 'rgba(129,140,248,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointBackgroundColor: brierValues.map((v, i) => i >= 3 ? '#4ade80' : '#6a655e'),
+        pointBorderColor: brierValues.map((v, i) => i >= 3 ? '#4ade80' : '#6a655e'),
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const b = data.brier_history[ctx.dataIndex];
+              return 'Brier: ' + b.brier + ' (' + b.batch_size + ' predictions)';
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 0.3,
+          grid: { color: '#262626' },
+          ticks: { color: '#6a655e' }
+        },
+        x: {
+          grid: { color: '#262626' },
+          ticks: { color: '#6a655e' }
+        }
+      }
+    }
+  });
+
+  // Calibration chart
+  if (data.calibration.length > 0) {
+    const calLabels = data.calibration.map(c => c.range);
+    const predicted = data.calibration.map(c => c.predicted);
+    const actual = data.calibration.map(c => c.actual);
+    new Chart(document.getElementById('calChart'), {
+      type: 'bar',
+      data: {
+        labels: calLabels,
+        datasets: [
+          {
+            label: 'Predicted %',
+            data: predicted,
+            backgroundColor: 'rgba(129,140,248,0.5)',
+            borderColor: '#818cf8',
+            borderWidth: 1,
+          },
+          {
+            label: 'Actual %',
+            data: actual,
+            backgroundColor: 'rgba(74,222,128,0.5)',
+            borderColor: '#4ade80',
+            borderWidth: 1,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#a8a39a' } },
+          tooltip: {
+            callbacks: {
+              afterLabel: function(ctx) {
+                const c = data.calibration[ctx.dataIndex];
+                return '(' + c.count + ' predictions)';
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: '#262626' },
+            ticks: { color: '#6a655e', callback: v => v + '%' }
+          },
+          x: {
+            grid: { color: '#262626' },
+            ticks: { color: '#6a655e' }
+          }
+        }
+      }
+    });
+  }
+
+  // Predictions table
+  const tbody = document.getElementById('preds-table');
+  data.recent_predictions.reverse().forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="author">@${p.author}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)">${p.text}</td>
+      <td class="verdict-${p.verdict.toLowerCase()}">${p.verdict}</td>
+      <td class="mono">${p.probability}%</td>
+      <td class="mono">${p.target.toLocaleString()}</td>
+      <td class="mono">${p.actual.toLocaleString()}</td>
+      <td class="${p.hit ? 'hit' : 'miss'}">${p.hit ? '✅' : '❌'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+})
+.catch(err => {
+  document.getElementById('stats').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-tertiary)">Loading data...</div>';
+  console.error(err);
+});
+</script>
+
+</body>
+</html>
