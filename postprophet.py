@@ -7,6 +7,7 @@ impression probability, waits for resolution, and scores with Brier score.
 
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -1465,6 +1466,66 @@ def format_calibration_for_prompt(cal: dict) -> str:
     return "\n".join(lines)
 
 
+def enrich_tweet_text(tweet: dict) -> str:
+    """Enrich tweet text by resolving t.co URLs to their actual destinations.
+    
+    For bare links to external articles, fetches the page title so the model
+    has something to evaluate. For X-internal links (quote tweets, media),
+    keeps the original text.
+    """
+    text = tweet.get("text", "")
+    entities = tweet.get("entities", {})
+    urls = entities.get("urls", [])
+    
+    if not urls:
+        return text
+    
+    # Check if text is basically just a URL (link-only tweet)
+    clean = re.sub(r'https?://\S+', '', text).strip()
+    is_link_only = len(clean) < 15
+    
+    if not is_link_only:
+        return text  # Has enough text, no need to enrich
+    
+    # Link-only tweet — resolve the URLs
+    enriched_parts = []
+    for u in urls:
+        expanded = u.get("expanded_url", "")
+        display = u.get("display_url", "")
+        
+        if not expanded:
+            continue
+        
+        # Check if it's an X-internal link (quote tweet, media)
+        if any(d in expanded for d in ["x.com", "twitter.com"]):
+            # It's a quote tweet or media — keep as-is
+            enriched_parts.append(f"[X link: {display}]")
+        else:
+            # External link — try to fetch the page title
+            try:
+                resp = httpx.get(expanded, follow_redirects=True, timeout=5, headers={"User-Agent": "PostProphet/1.0"})
+                if resp.status_code == 200:
+                    # Extract title from HTML
+                    title_match = re.search(r'<title[^>]*>(.*?)</title>', resp.text, re.IGNORECASE | re.DOTALL)
+                    if title_match:
+                        title = title_match.group(1).strip()[:200]
+                        title = re.sub(r'\s*[|\-–—]\s*.*$', '', title).strip()
+                        if title:
+                            enriched_parts.append(f'[Article: "{title}" from {display}]')
+                        else:
+                            enriched_parts.append(f"[Link: {display}]")
+                    else:
+                        enriched_parts.append(f"[Link: {display}]")
+                else:
+                    enriched_parts.append(f"[Link: {display}]")
+            except Exception:
+                enriched_parts.append(f"[Link: {display}]")
+    
+    if enriched_parts:
+        return " ".join(enriched_parts)
+    return text
+
+
 def backfill_predictions(max_tweets_per_account: int = 20):
     """Backfill historical predictions for faster data accumulation.
     
@@ -1551,11 +1612,9 @@ def backfill_predictions(max_tweets_per_account: int = 20):
                 stats["skipped"] += 1
                 continue
             
-            # Skip link-only tweets (no text to evaluate)
-            import re as _re
-            clean_text = _re.sub(r'https?://\S+', '', tweet.get("text", "")).strip()
-            if len(clean_text) < 15:
-                continue  # Can't predict on a bare URL
+            # Skip tweets with no text at all
+            if not tweet.get("text", "").strip():
+                continue
             
             # This tweet is >24h old — impressions are final
             actual_impressions = tweet.get("public_metrics", {}).get("impression_count", 0)
@@ -1575,7 +1634,7 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             
             context = {
                 "tweet_id": tweet_id,
-                "text": tweet.get("text", ""),
+                "text": enrich_tweet_text(tweet),
                 "created_at": created_at,
                 "planned_post_time": created_at,
                 "platform": "x",
