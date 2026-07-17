@@ -99,13 +99,14 @@ Return only the tweet text, nothing else."""
     else:
         # Revision — use PostProphet's feedback to improve
         pattern = feedback.get("pattern_analysis", "")
+        verdict = "YES" if feedback.get("probability", 0) >= 0.5 else "NO"
         prompt = f"""You are revising a tweet for @{author} on X. The previous version wasn't good enough.
 
 Current tweet:
 "{previous_tweet}"
 
 PostProphet feedback (expert editorial guidance):
-- Probability of reaching 2x median: {feedback['probability']:.0%}
+- Verdict: {verdict} ({feedback['probability']:.0%} chance of hitting 2x median)
 - Scores (0-10): hook {feedback.get('hook_strength', 0)} | spec {feedback.get('specificity', 0)} | emotion {feedback.get('emotional_trigger', 0)} | reply_inducement {feedback.get('reply_inducement', 0)} | bookmark {feedback.get('bookmark_worthiness', 0)} | structure {feedback.get('structure_readability', 0)} | clarity {feedback.get('clarity_density', 0)} | link_safe {feedback.get('link_penalty_risk', 0)}
 - Reasoning: {feedback['reasoning']}
 - Pattern analysis: {pattern}
@@ -203,7 +204,8 @@ def main():
         pattern = result.get("pattern_analysis", "")
         
         print(f"  Scores: hook {hook} | spec {spec} | emotion {emotion} | reply {reply_ind} | bookmark {bookmark} | structure {structure} | clarity {clarity} | link_safe {link_risk}")
-        print(f"  Probability: {prob:.0%}")
+        verdict = "YES" if prob >= 0.5 else "NO"
+        print(f"  Prediction: {verdict} ({prob:.0%})")
         print(f"  Reasoning: {reasoning}")
         if pattern:
             print(f"  Pattern: {pattern}")
@@ -241,7 +243,8 @@ def main():
     print(f"  ──────────")
     print(f"  {current_tweet}")
     print(f"  ({len(current_tweet)} chars)")
-    print(f"  Probability: {prob:.0%}")
+    verdict = "YES" if prob >= 0.5 else "NO"
+    print(f"  Final: {verdict} ({prob:.0%})")
     print(f"  Iterations: {i}")
     print("=" * 60)
     print()

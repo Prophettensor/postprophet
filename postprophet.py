@@ -380,7 +380,8 @@ def capture_from_accounts():
 
         prob = prediction.get("probability", 0.5)
         reasoning = prediction.get("reasoning", "")[:100]
-        print(f"    → {prob:.0%} | target {dynamic_target:,} | {reasoning}")
+        verdict = "YES" if prob >= 0.5 else "NO"
+        print(f"    → {verdict} ({prob:.0%} chance of {dynamic_target:,} impressions) | {reasoning}")
         print()
 
     print(f"Captured {len(predictions)} new predictions. Waiting {TIMEFRAME_HOURS}h for resolution.")
@@ -1441,9 +1442,10 @@ def resolve_phase():
 
         hit = actual >= p["target"]
         prob = p["prediction"]["probability"]
+        target = p["target"]
         username = p["context"]["author"]["username"]
-        baseline = p["context"].get("author_baseline", {}).get("median_impressions", 0)
-        print(f"  @{username}: predicted {prob:.0%}, got {actual:,} (median: {baseline:.0f}) → {'HIT' if hit else 'MISS'}")
+        verdict = "YES" if prob >= 0.5 else "NO"
+        print(f"  @{username}: {verdict} ({prob:.0%}) | target {target:,} | actual {actual:,} → {'✅ HIT' if hit else '❌ MISS'}")
 
         resolved_batch.append(p)
 
@@ -1544,7 +1546,8 @@ def report_phase():
 
             print(f"  @{username} ({followers:,} followers, median {avg_imp:.0f} imp/tweet)")
             print(f"  Tweet: {tweet_text}...")
-            print(f"  Target: {target:,} (2x median) | Predicted: {prob:.0%} | Estimate: {point:,} | Actual: {actual:,} | {'✅ HIT' if hit else '❌ MISS'}")
+            verdict = "YES" if prob >= 0.5 else "NO"
+            print(f"  Target: {target:,} impressions | Predicted: {verdict} ({prob:.0%}) | Actual: {actual:,} | {'✅ HIT' if hit else '❌ MISS'}")
             if elapsed:
                 print(f"  Tweet age at prediction: {elapsed}")
             print(f"  Reasoning: {reasoning}")
