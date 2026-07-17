@@ -1465,7 +1465,230 @@ def format_calibration_for_prompt(cal: dict) -> str:
     return "\n".join(lines)
 
 
-# ── Eval: run harness against frozen eval set ────────────────────────────
+def backfill_predictions(max_tweets_per_account: int = 20):
+    """Backfill historical predictions for faster data accumulation.
+    
+    Fetches 20 tweets per account. Tweets 1-10 = baseline (shown to model).
+    Tweets 11-20 = prediction targets (older, already past 24h, resolved immediately).
+    
+    No waiting for resolution — impressions are final since these tweets are >24h old.
+    No extra resolve API calls — impressions come from the same fetch.
+    
+    Cost: ~$0.10 per account (20 tweet reads + 10 LLM calls). 90 accounts = ~$9.
+    """
+    print("\n" + "=" * 60)
+    print("  PostProphet — Historical Backfill")
+    print("=" * 60 + "\n")
+    
+    handles = load_tracked_accounts()
+    existing = load_predictions()
+    existing_ids = {p["tweet_id"] for p in existing}
+    
+    print(f"  Accounts: {len(handles)}")
+    print(f"  Tweets per account: {max_tweets_per_account} (10 baseline + {max_tweets_per_account - 10} targets)")
+    print(f"  Already predicted: {len(existing_ids)} tweets (skipped)")
+    print()
+    
+    all_new_predictions = []
+    stats = {"accounts_processed": 0, "tweets_predicted": 0, "errors": 0, "skipped": 0}
+    
+    for i, handle in enumerate(handles, 1):
+        print(f"  [{i}/{len(handles)}] @{handle}...", end="")
+        
+        # Get user
+        user = get_user_by_username(handle)
+        if not user:
+            print(" ❌ not found")
+            stats["errors"] += 1
+            continue
+        
+        user_id = user.get("id", "")
+        followers = user.get("public_metrics", {}).get("followers_count", 0)
+        if followers == 0:
+            print(" ⚠️ 0 followers")
+            stats["skipped"] += 1
+            continue
+        
+        # Fetch 20 tweets (one API call)
+        try:
+            all_tweets = get_author_recent_tweets(user_id, max_results=max_tweets_per_account)
+        except Exception as e:
+            print(f" ❌ API error: {e}")
+            stats["errors"] += 1
+            continue
+        
+        if len(all_tweets) < 11:
+            print(f" ⏭️ only {len(all_tweets)} tweets (need 11+)")
+            stats["skipped"] += 1
+            continue
+        
+        # Tweets 1-10 = baseline (most recent), tweets 11+ = prediction targets
+        baseline_tweets = all_tweets[:10]
+        target_tweets = all_tweets[10:]
+        
+        # Compute baseline from first 10
+        baseline = compute_author_baseline(baseline_tweets)
+        median_imp = baseline.get("median_impressions", 0)
+        if median_imp == 0:
+            print(" ⚠️ no baseline")
+            stats["skipped"] += 1
+            continue
+        
+        dynamic_target = int(median_imp * 2)
+        
+        # Build reference tweets from baseline only
+        all_samples, hit_sample, miss_sample = get_reference_tweets(baseline_tweets, baseline)
+        recent_samples = [s for s in [hit_sample, miss_sample] if s]
+        
+        # Cache author data
+        cache_author(handle, user, baseline, recent_samples)
+        
+        # Predict on each target tweet (older tweets, already resolved)
+        account_preds = []
+        for tweet in target_tweets:
+            tweet_id = tweet["id"]
+            if tweet_id in existing_ids:
+                stats["skipped"] += 1
+                continue
+            
+            # This tweet is >24h old — impressions are final
+            actual_impressions = tweet.get("public_metrics", {}).get("impression_count", 0)
+            
+            # Build context (same as track mode, but NO engagement leakage)
+            media_info = analyze_media(tweet) if tweet.get("_media") else {"has_media": False, "media_types": [], "descriptions": []}
+            
+            # Check if tweet is >24h old
+            created_at = tweet.get("created_at", "")
+            try:
+                posted_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                age_hours = (datetime.now(timezone.utc) - posted_dt).total_seconds() / 3600
+                if age_hours < 24:
+                    continue  # Skip tweets that haven't reached 24h yet
+            except Exception:
+                continue
+            
+            context = {
+                "tweet_id": tweet_id,
+                "text": tweet.get("text", ""),
+                "created_at": created_at,
+                "planned_post_time": created_at,
+                "platform": "x",
+                "author": {
+                    "username": handle,
+                    "followers": followers,
+                    "following": user.get("public_metrics", {}).get("following_count", 0),
+                    "tweet_count": user.get("public_metrics", {}).get("tweet_count", 0),
+                },
+                "author_baseline": baseline,
+                "author_recent_top_tweets": recent_samples,
+                "author_all_tweets": all_samples,
+                "media": media_info,
+                "entities": tweet.get("entities", {}),
+                "referenced_tweets": tweet.get("referenced_tweets", []),
+                "trending_topics": [],
+                "has_x_data": True,
+            }
+            
+            # Predict
+            try:
+                prediction = predict(context, target=dynamic_target)
+                time.sleep(2)  # Rate limit: stay under 200K TPM on gpt-4o-mini
+            except Exception as e:
+                print(f" ❌ predict error: {e}")
+                stats["errors"] += 1
+                continue
+            
+            # Calculate elapsed time at prediction
+            elapsed_str = "unknown"
+            try:
+                posted_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                elapsed_hrs = age_hours
+                elapsed_str = f"{elapsed_hrs:.1f}h"
+            except Exception:
+                pass
+            
+            record = {
+                "tweet_id": tweet_id,
+                "predicted_at": datetime.now(timezone.utc).isoformat(),
+                "timeframe_hours": TIMEFRAME_HOURS,
+                "target": dynamic_target,
+                "model": OPENAI_MODEL,
+                "harness_version": HARNESS_VERSION,
+                "harness_hash": HARNESS_HASH,
+                "followers_at_prediction": followers,
+                "elapsed_at_prediction": elapsed_str,
+                "has_url": "http" in context["text"] or "https" in context["text"],
+                "has_external_url": any(
+                    u.get("expanded_url", "") and not any(d in u["expanded_url"] for d in ["x.com", "twitter.com"])
+                    for u in context.get("entities", {}).get("urls", [])
+                ) if context.get("entities") else ("http" in context["text"] or "https" in context["text"]),
+                "is_quote_tweet": any(
+                    r.get("type") == "quoted" for r in context.get("referenced_tweets", [])
+                ) if context.get("referenced_tweets") else False,
+                "context": context,
+                "prediction": prediction,
+                "resolve_after": (
+                    datetime.fromisoformat(created_at.replace("Z", "+00:00")) + timedelta(hours=TIMEFRAME_HOURS)
+                ).isoformat(),
+                "resolved": True,  # Already resolved — impressions are final
+                "actual_impressions": actual_impressions,
+            }
+            
+            save_prediction(record)
+            all_new_predictions.append(record)
+            account_preds.append(record)
+            existing_ids.add(tweet_id)
+            stats["tweets_predicted"] += 1
+        
+        prob_str = ""
+        if account_preds:
+            avg_prob = sum(p["prediction"]["probability"] for p in account_preds) / len(account_preds)
+            hits = sum(1 for p in account_preds if p["actual_impressions"] >= p["target"])
+            prob_str = f" ✓ {len(account_preds)} preds | avg {avg_prob:.0%} | {hits} hits"
+        
+        print(f" median {median_imp:.0f} | target {dynamic_target:,}{prob_str}")
+        stats["accounts_processed"] += 1
+    
+    # Compute Brier for the backfill batch
+    print()
+    print(f"  ────────────────────────────────────────")
+    print(f"  Backfill complete:")
+    print(f"  Accounts processed: {stats['accounts_processed']}")
+    print(f"  Predictions made:   {stats['tweets_predicted']}")
+    print(f"  Skipped:            {stats['skipped']}")
+    print(f"  Errors:             {stats['errors']}")
+    
+    if all_new_predictions:
+        brier = brier_score(all_new_predictions)
+        hits = sum(1 for p in all_new_predictions if p["actual_impressions"] >= p["target"])
+        print(f"  Hits:               {hits}/{len(all_new_predictions)}")
+        print(f"  Brier:              {brier:.4f}")
+        
+        # Save score record
+        score_record = {
+            "scored_at": datetime.now(timezone.utc).isoformat(),
+            "batch_size": len(all_new_predictions),
+            "brier_score": brier,
+            "model": OPENAI_MODEL,
+            "harness_version": HARNESS_VERSION,
+            "harness_hash": HARNESS_HASH,
+            "timeframe_hours": TIMEFRAME_HOURS,
+            "target": "2x_median",
+            "batch_type": "backfill",
+        }
+        save_score(score_record)
+        print(f"  Score saved.")
+    
+    print(f"  ────────────────────────────────────────")
+    
+    # Rebuild eval set if we have enough
+    all_preds = load_predictions()
+    resolved = [p for p in all_preds if p.get("resolved")]
+    print(f"\n  Total resolved predictions: {len(resolved)}")
+    if len(resolved) >= 10:
+        build_eval_set(all_preds)
+    
+    return stats
 
 
 EVAL_FILE = os.path.join(DATA_DIR, "eval_set.jsonl")
@@ -2093,7 +2316,9 @@ Environment:
 
     cmd = sys.argv[1]
 
-    if cmd == "eval-set":
+    if cmd == "backfill":
+        backfill_predictions()
+    elif cmd == "eval-set":
         build_eval_set()
     elif cmd == "eval":
         run_eval()
