@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env
 data/
+# Eval set IS committed — needed for PR eval (no sensitive data, just public tweets)
+!data/eval_set.jsonl
