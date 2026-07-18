@@ -14,7 +14,7 @@
     {
       "name": "specificity",
       "category": "Content quality",
-      "description": "Does it say something concrete? Named products, numbers, events = high. General statements about 'innovation' or 'decentralization' = low."
+      "description": "Does it say something concrete? Specific numbers, named projects, and concrete data points are crucial. High scores for precise details and examples; general statements about 'innovation' or 'decentralization' = low."
     },
     {
       "name": "emotional_trigger",
@@ -48,9 +48,9 @@
     }
   ],
   "probability_guide": [
-    "All scores 7+: 65-80%",
-    "Two scores 7+, rest decent: 40-55%",
-    "One score 7+, rest weak: 20-35%",
+    "All scores 7+ (especially specificity): 70-85%",
+    "Two scores 7+ (including specificity), rest decent: 45-60%",
+    "One score 7+ (specificity), rest weak: 25-40%",
     "All scores below 6: 5-15%",
     "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
   ],
