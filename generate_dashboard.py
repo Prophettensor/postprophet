@@ -19,14 +19,35 @@ def main():
     resolved = [p for p in preds if p.get("resolved")]
     new_arch = [p for p in resolved if p.get("prediction", {}).get("hook_strength")]
 
-    # Brier history
+    # Brier history — one cumulative data point per day
+    # Instead of per-batch Brier (which spikes and is noisy), show
+    # cumulative Brier across ALL resolved predictions up to that date
+    from collections import defaultdict
+    by_day = defaultdict(list)
+    for p in new_arch:
+        day = p.get("predicted_at", "")[:10]
+        if not day:
+            day = p.get("resolve_after", "")[:10]
+        if not day:
+            day = "unknown"
+        by_day[day].append(p)
+    
+    # Sort days and compute cumulative Brier
+    sorted_days = sorted(by_day.keys())
+    cumulative_preds = []
     brier_data = []
-    for s in scores:
-        brier_data.append({
-            "date": s["scored_at"][:10],
-            "brier": round(s["brier_score"], 4),
-            "batch_size": s["batch_size"],
-        })
+    for day in sorted_days:
+        cumulative_preds.extend(by_day[day])
+        if cumulative_preds:
+            day_brier = sum(
+                (p["prediction"]["probability"] - (1.0 if p["actual_impressions"] >= p["target"] else 0.0)) ** 2
+                for p in cumulative_preds
+            ) / len(cumulative_preds)
+            brier_data.append({
+                "date": day,
+                "brier": round(day_brier, 4),
+                "cumulative_count": len(cumulative_preds),
+            })
 
     # Calibration (new arch only)
     buckets = {}

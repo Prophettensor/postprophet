@@ -156,7 +156,7 @@ footer{border-top:1px solid var(--border);padding:24px 0;text-align:center;color
 
   <div class="section">
     <h2 class="section-title">Brier Score Over Time</h2>
-    <p class="section-sub">Lower is better. 0.25 = coin flip. 0 = perfect. Gray = old architecture. Green = current.</p>
+    <p class="section-sub">Cumulative Brier across all resolved predictions. Lower is better. 0.25 = coin flip.</p>
     <div class="chart-container">
       <canvas id="brierChart"></canvas>
     </div>
@@ -221,25 +221,23 @@ fetch('dashboard-data.json')
   const total = data.recent_predictions.length;
   document.getElementById('stat-hitrate').textContent = total > 0 ? Math.round(hits/total*100) + '%' : '-';
 
-  // Brier chart
+  // Brier chart — cumulative, one point per day
   const brierLabels = data.brier_history.map(b => b.date);
   const brierValues = data.brier_history.map(b => b.brier);
-  const newArchStart = 3; // First 3 batches are old arch
   new Chart(document.getElementById('brierChart'), {
     type: 'line',
     data: {
       labels: brierLabels,
       datasets: [{
-        label: 'Brier Score',
+        label: 'Cumulative Brier',
         data: brierValues,
         borderColor: '#818cf8',
         backgroundColor: 'rgba(129,140,248,0.08)',
         fill: true,
         tension: 0.3,
-        pointRadius: 5,
-        pointBackgroundColor: brierValues.map((v, i) => i >= newArchStart ? '#4ade80' : '#6a655e'),
-        pointBorderColor: brierValues.map((v, i) => i >= newArchStart ? '#4ade80' : '#6a655e'),
-        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: '#4ade80',
+        pointBorderColor: '#4ade80',
       }, {
         label: 'Coin flip (0.25)',
         data: brierLabels.map(() => 0.25),
@@ -260,15 +258,14 @@ fetch('dashboard-data.json')
             label: function(ctx) {
               if (ctx.datasetIndex === 1) return null;
               const b = data.brier_history[ctx.dataIndex];
-              const arch = ctx.dataIndex >= newArchStart ? 'current arch' : 'old arch';
-              return 'Brier: ' + b.brier + ' (' + b.batch_size + ' preds, ' + arch + ')';
+              return 'Brier: ' + b.brier + ' (' + b.cumulative_count + ' predictions)';
             }
           }
         }
       },
       scales: {
         y: { beginAtZero: true, max: 0.3, grid: { color: '#262626' }, ticks: { color: '#6a655e' } },
-        x: { grid: { color: '#262626' }, ticks: { color: '#6a655e' } }
+        x: { grid: { color: '#262626' }, ticks: { color: '#6a655e', maxRotation: 45, minRotation: 45 } }
       }
     }
   });
