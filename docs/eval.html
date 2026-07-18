@@ -51,43 +51,48 @@ nav .links a:hover{color:var(--text)}
 .chart-container{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
 .chart-container canvas{max-height:260px}
 
-/* Prediction cards */
-.pred-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden;cursor:pointer;transition:border-color .15s}
-.pred-card:hover{border-color:var(--border-strong)}
-.pred-card.expanded{border-color:var(--accent)}
+/* Tweet card */
+.tweet-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;margin-bottom:16px;overflow:hidden}
+.tweet-header{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 0}
+.tweet-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4338ca,#818cf8);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;color:#fff;flex-shrink:0}
+.tweet-name-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.tweet-name{font-weight:700;font-size:.95em;color:var(--text)}
+.tweet-handle{color:var(--text-tertiary);font-size:.9em}
+.tweet-verified{color:var(--accent);font-size:.8em}
+.tweet-time{color:var(--text-tertiary);font-size:.85em;margin-left:auto;white-space:nowrap}
+.tweet-body{padding:8px 16px 12px;font-size:.95em;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.tweet-quote-box{border:1px solid var(--border);border-radius:12px;padding:12px;margin:8px 0;background:var(--bg-elevated)}
+.tweet-quote-handle{color:var(--text-tertiary);font-size:.85em;font-weight:600;margin-bottom:4px}
+.tweet-quote-text{font-size:.9em;color:var(--text-secondary);line-height:1.4;word-break:break-word;white-space:pre-wrap}
+.tweet-thread-marker{color:var(--text-tertiary);font-size:.8em;font-weight:600;margin:8px 0 4px}
+.tweet-metrics-bar{display:flex;gap:20px;padding:0 16px 12px;font-size:.82em;color:var(--text-tertiary)}
+.tweet-metric{display:flex;align-items:center;gap:4px}
+.tweet-metric .num{color:var(--text-secondary);font-weight:600}
 
-.pred-header{display:flex;align-items:center;gap:10px;padding:14px 16px;-webkit-tap-highlight-color:transparent}
-.pred-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;color:var(--accent);flex-shrink:0}
-.pred-author{font-weight:600;font-size:.92em;color:var(--accent)}
-.pred-meta{font-size:.76em;color:var(--text-tertiary)}
-.pred-spacer{flex:1}
-.pred-verdict{font-size:.78em;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0}
-.pred-verdict.yes{background:rgba(74,222,128,0.12);color:var(--green)}
-.pred-verdict.no{background:rgba(251,191,36,0.12);color:var(--yellow)}
-.pred-result{font-size:1.1em;flex-shrink:0}
-.pred-expand-hint{font-size:.7em;color:var(--text-tertiary);margin-left:4px;transition:transform .2s}
-.pred-card.expanded .pred-expand-hint{transform:rotate(180deg)}
-
-.pred-body{padding:0 16px 14px}
-.pred-tweet{font-size:.92em;color:var(--text);line-height:1.5;margin-bottom:10px;word-break:break-word;white-space:pre-wrap}
-.pred-numbers{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em}
+/* Prediction overlay */
+.pred-overlay{border-top:1px solid var(--border);padding:12px 16px;background:var(--bg-elevated)}
+.pred-overlay-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pred-badge{font-size:.78em;font-weight:700;padding:3px 10px;border-radius:8px;flex-shrink:0}
+.pred-badge.yes{background:rgba(74,222,128,0.12);color:var(--green)}
+.pred-badge.no{background:rgba(251,191,36,0.12);color:var(--yellow)}
+.pred-result{font-size:1em;flex-shrink:0}
+.pred-expand-hint{font-size:.7em;color:var(--text-tertiary);margin-left:auto;transition:transform .2s;cursor:pointer}
+.tweet-card.expanded .pred-expand-hint{transform:rotate(180deg)}
+.pred-numbers{display:flex;gap:16px;flex-wrap:wrap;font-size:.82em;margin-bottom:8px}
 .pred-num{display:flex;flex-direction:column}
 .pred-num .lbl{font-size:.7em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em}
 .pred-num .val{font-weight:600}
 .pred-num .val.mono{font-family:'JetBrains Mono',monospace}
-
 .pred-details{max-height:0;overflow:hidden;transition:max-height .4s ease;border-top:0 solid var(--border)}
-.pred-card.expanded .pred-details{max-height:2000px;border-top:1px solid var(--border)}
-.pred-details-inner{padding:14px 16px}
-
+.tweet-card.expanded .pred-details{max-height:2000px;border-top:1px solid var(--border)}
+.pred-details-inner{padding:12px 16px}
 .pred-scores{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.score-chip{padding:3px 8px;border-radius:6px;background:var(--bg-elevated);font-size:.72em;font-family:'JetBrains Mono',monospace}
+.score-chip{padding:3px 8px;border-radius:6px;background:var(--bg-card);font-size:.72em;font-family:'JetBrains Mono',monospace}
 .score-chip .name{color:var(--text-tertiary)}
 .score-chip .val{color:var(--text);font-weight:600}
 .score-chip.low .val{color:var(--red)}
 .score-chip.mid .val{color:var(--yellow)}
 .score-chip.high .val{color:var(--green)}
-
 .pred-section{margin-bottom:10px}
 .pred-section-title{font-size:.72em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:4px}
 .pred-section-text{font-size:.88em;color:var(--text-secondary);line-height:1.5}
@@ -198,6 +203,13 @@ function fmt(n) {
   return n.toLocaleString();
 }
 
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 fetch('dashboard-data.json')
 .then(r => r.json())
 .then(data => {
@@ -288,12 +300,49 @@ fetch('dashboard-data.json')
     });
   }
 
-  // Prediction cards
+  // Prediction cards (tweet-style)
   const list = document.getElementById('preds-list');
   data.recent_predictions.reverse().forEach((p, idx) => {
     const card = document.createElement('div');
-    card.className = 'pred-card';
+    card.className = 'tweet-card';
     card.dataset.idx = idx;
+
+    // Parse tweet text for quote/thread formatting
+    let tweetHtml = '';
+    let rawText = p.text || '';
+    
+    if (rawText.startsWith('[Quoting ') || rawText.startsWith('[SELF-QUOTE')) {
+      // Quote tweet — parse original + quote
+      const lines = rawText.split('\n');
+      const headerLine = lines[0]; // [Quoting @user ...] or [SELF-QUOTE ...]
+      const originalIdx = lines.findIndex(l => l.startsWith('Original:'));
+      const quoteIdx = lines.findIndex(l => l.startsWith('Quote:'));
+      
+      const originalText = originalIdx >= 0 ? lines.slice(originalIdx + 1, quoteIdx).join('\n').replace(/^Original:\s*/, '') : '';
+      const quoteText = quoteIdx >= 0 ? lines.slice(quoteIdx).join('\n').replace(/^Quote:\s*/, '') : '';
+      
+      // Show quote text as main, original in quote box
+      const quotedHandle = headerLine.match(/@(\w+)/);
+      const quotedHandleStr = quotedHandle ? quotedHandle[0] : 'unknown';
+      const isSelfQuote = headerLine.startsWith('[SELF-QUOTE');
+      const quoteLabel = isSelfQuote ? 'Quoting themselves' : 'Quoting ' + quotedHandleStr;
+      
+      tweetHtml = `<div class="tweet-body">${escapeHtml(quoteText)}</div>`;
+      tweetHtml += `<div class="tweet-body" style="padding-top:0"><div class="tweet-quote-box"><div class="tweet-quote-handle">${escapeHtml(quoteLabel)}</div><div class="tweet-quote-text">${escapeHtml(originalText)}</div></div></div>`;
+    } else if (rawText.startsWith('[THREAD')) {
+      // Thread — parse numbered parts
+      const lines = rawText.split('\n').filter(l => !l.startsWith('[THREAD'));
+      const parts = lines.map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(l => l);
+      tweetHtml = '<div class="tweet-body">';
+      parts.forEach((part, i) => {
+        if (i > 0) tweetHtml += '<div class="tweet-thread-marker">↓</div>';
+        tweetHtml += escapeHtml(part);
+      });
+      tweetHtml += '</div>';
+    } else {
+      // Standalone tweet
+      tweetHtml = `<div class="tweet-body">${escapeHtml(rawText)}</div>`;
+    }
 
     // Score chips
     let scoresHtml = '';
@@ -306,50 +355,49 @@ fetch('dashboard-data.json')
       scoresHtml = '<div class="pred-scores">' + chips + '</div>';
     }
 
+    // Meta line
     const meta = [];
     if (p.followers) meta.push(fmt(p.followers) + ' followers');
     if (p.elapsed) meta.push('predicted ' + p.elapsed + ' after post');
-    if (p.has_url) meta.push('has URL');
     if (p.is_quote_tweet) meta.push('quote tweet');
-    if (p.has_external_url) meta.push('external link');
+    else if (p.has_external_url) meta.push('external link');
+    else if (p.has_url) meta.push('has URL');
+
+    const initials = p.author.substring(0, 2).toUpperCase();
 
     card.innerHTML = `
-      <div class="pred-header">
-        <div class="pred-avatar">${p.author.substring(0,2).toUpperCase()}</div>
-        <div>
-          <div class="pred-author">@${p.author}</div>
-          <div class="pred-meta">${meta.join(' · ')}</div>
+      <div class="tweet-header">
+        <div class="tweet-avatar">${initials}</div>
+        <div style="flex:1;min-width:0">
+          <div class="tweet-name-row">
+            <span class="tweet-name">@${escapeHtml(p.author)}</span>
+          </div>
+          <div style="color:var(--text-tertiary);font-size:.8em">${meta.join(' · ')}</div>
         </div>
-        <div class="pred-spacer"></div>
-        <div class="pred-verdict ${p.verdict.toLowerCase()}">${p.verdict} ${p.probability}%</div>
-        <div class="pred-result">${p.prediction_correct ? '✅' : '❌'}</div>
-        <div class="pred-expand-hint">▼</div>
+        <div class="tweet-time">${p.verdict} ${p.probability}%</div>
       </div>
-      <div class="pred-body">
-        <div class="pred-tweet">${p.text}</div>
-        <div class="pred-numbers">
-          <div class="pred-num"><span class="lbl">Target</span><span class="val mono">${fmt(p.target)}</span></div>
-          <div class="pred-num"><span class="lbl">Actual</span><span class="val mono" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${fmt(p.actual)}</span></div>
-          <div class="pred-num"><span class="lbl">Ratio</span><span class="val mono">${Math.round(p.actual / p.target * 100)}%</span></div>
+      ${tweetHtml}
+      <div class="pred-overlay">
+        <div class="pred-overlay-top" style="cursor:pointer" onclick="this.closest('.tweet-card').classList.toggle('expanded')">
+          <div class="pred-badge ${p.verdict.toLowerCase()}">${p.verdict} ${p.probability}%</div>
+          <div class="pred-result">${p.prediction_correct ? '✅' : '❌'}</div>
+          <div style="flex:1"></div>
+          <div class="pred-numbers" style="margin-bottom:0">
+            <div class="pred-num"><span class="lbl">Target</span><span class="val mono">${fmt(p.target)}</span></div>
+            <div class="pred-num"><span class="lbl">Actual</span><span class="val mono" style="color:${p.hit ? 'var(--green)' : 'var(--red)'}">${fmt(p.actual)}</span></div>
+            <div class="pred-num"><span class="lbl">Ratio</span><span class="val mono">${Math.round(p.actual / p.target * 100)}%</span></div>
+          </div>
+          <div class="pred-expand-hint">▼</div>
         </div>
-      </div>
-      <div class="pred-details">
-        <div class="pred-details-inner">
-          ${scoresHtml}
-          ${p.reasoning ? '<div class="pred-section"><div class="pred-section-title">Reasoning</div><div class="pred-section-text">' + p.reasoning + '</div></div>' : ''}
-          ${p.suggestions ? '<div class="pred-section"><div class="pred-section-title">Feedback</div><div class="pred-section-text">' + p.suggestions + '</div></div>' : ''}
+        <div class="pred-details">
+          <div class="pred-details-inner">
+            ${scoresHtml}
+            ${p.reasoning ? '<div class="pred-section"><div class="pred-section-title">Reasoning</div><div class="pred-section-text">' + escapeHtml(p.reasoning) + '</div></div>' : ''}
+            ${p.suggestions ? '<div class="pred-section"><div class="pred-section-title">Feedback</div><div class="pred-section-text">' + escapeHtml(p.suggestions) + '</div></div>' : ''}
+          </div>
         </div>
       </div>
     `;
-
-    card.querySelector('.pred-header').addEventListener('click', function(e) {
-      e.preventDefault();
-      card.classList.toggle('expanded');
-    });
-    card.querySelector('.pred-body').addEventListener('click', function(e) {
-      e.preventDefault();
-      card.classList.toggle('expanded');
-    });
 
     list.appendChild(card);
   });
