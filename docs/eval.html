@@ -312,27 +312,47 @@ fetch('dashboard-data.json')
     let rawText = p.text || '';
     
     if (rawText.startsWith('[Quoting ') || rawText.startsWith('[SELF-QUOTE')) {
-      // Quote tweet — parse original + quote
+      // New format quote tweet
       const lines = rawText.split('\n');
-      const headerLine = lines[0]; // [Quoting @user ...] or [SELF-QUOTE ...]
+      const headerLine = lines[0];
       const originalIdx = lines.findIndex(l => l.startsWith('Original:'));
       const quoteIdx = lines.findIndex(l => l.startsWith('Quote:'));
       
       const originalText = originalIdx >= 0 ? lines.slice(originalIdx + 1, quoteIdx).join('\n').replace(/^Original:\s*/, '') : '';
       const quoteText = quoteIdx >= 0 ? lines.slice(quoteIdx).join('\n').replace(/^Quote:\s*/, '') : '';
       
-      // Show quote text as main, original in quote box
       const quotedHandle = headerLine.match(/@(\w+)/);
       const quotedHandleStr = quotedHandle ? quotedHandle[0] : 'unknown';
       const isSelfQuote = headerLine.startsWith('[SELF-QUOTE');
       const quoteLabel = isSelfQuote ? 'Quoting themselves' : 'Quoting ' + quotedHandleStr;
       
+      // Quote text on top, original in box below (like X)
       tweetHtml = `<div class="tweet-body">${escapeHtml(quoteText)}</div>`;
       tweetHtml += `<div class="tweet-body" style="padding-top:0"><div class="tweet-quote-box"><div class="tweet-quote-handle">${escapeHtml(quoteLabel)}</div><div class="tweet-quote-text">${escapeHtml(originalText)}</div></div></div>`;
-    } else if (rawText.startsWith('[THREAD')) {
-      // Thread — parse numbered parts
-      const lines = rawText.split('\n').filter(l => !l.startsWith('[THREAD'));
-      const parts = lines.map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(l => l);
+    } else if (rawText.includes('[ORIGINAL TWEET') || rawText.includes('[QUOTE TWEET]')) {
+      // Old format quote tweet — parse and re-render
+      const origMatch = rawText.match(/\[ORIGINAL TWEET[^\]]*\]\n([\s\S]*?)\[END ORIGINAL\]/);
+      const quoteMatch = rawText.match(/\[QUOTE TWEET\]\n([\s\S]*?)\[END QUOTE\]/);
+      const handleMatch = rawText.match(/\[ORIGINAL TWEET by @(\w+)/);
+      
+      const originalText = origMatch ? origMatch[1].trim() : '';
+      const quoteText = quoteMatch ? quoteMatch[1].trim() : '';
+      const quotedHandleStr = handleMatch ? '@' + handleMatch[1] : 'unknown';
+      
+      tweetHtml = `<div class="tweet-body">${escapeHtml(quoteText)}</div>`;
+      tweetHtml += `<div class="tweet-body" style="padding-top:0"><div class="tweet-quote-box"><div class="tweet-quote-handle">Quoting ${escapeHtml(quotedHandleStr)}</div><div class="tweet-quote-text">${escapeHtml(originalText)}</div></div></div>`;
+    } else if (rawText.startsWith('[THREAD') || rawText.includes('[THREAD START]')) {
+      // Thread — parse numbered parts (handle both formats)
+      let parts = [];
+      if (rawText.includes('[THREAD START]')) {
+        // Old format: [THREAD START] 1/N: text [THREAD END]
+        const inner = rawText.replace(/\[THREAD START\]/, '').replace(/\[THREAD END\]/, '').trim();
+        parts = inner.split('\n').map(l => l.replace(/^\d+\/\d+:\s*/, '').trim()).filter(l => l);
+      } else {
+        // New format: [THREAD - N tweets] 1. text 2. text
+        const lines = rawText.split('\n').filter(l => !l.startsWith('[THREAD'));
+        parts = lines.map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(l => l);
+      }
       tweetHtml = '<div class="tweet-body">';
       parts.forEach((part, i) => {
         if (i > 0) tweetHtml += '<div class="tweet-thread-marker">↓</div>';
