@@ -3,8 +3,7 @@ name: PR Smoke Test (Stage 1)
 on:
   pull_request:
     paths:
-      - 'environments/twitter.json'
-      - 'postprophet.py'
+      - 'environments/**'
 
 permissions:
   contents: write
@@ -30,11 +29,24 @@ jobs:
       - name: Install dependencies
         run: pip install httpx openai
       
-      - name: Validate config
+      - name: Validate config + check for tampering
         id: validate
         run: |
           python -c "
-          import json, sys
+          import json, sys, subprocess
+          
+          # Check if PR modifies eval_set.jsonl (tamper protection)
+          result = subprocess.run(
+              ['git', 'diff', '--name-only', 'origin/main...HEAD'],
+              capture_output=True, text=True
+          )
+          changed_files = result.stdout.strip().split('\n')
+          protected = ['data/eval_set.jsonl', 'postprophet.py', 'run_duel.py', 'scripts/', '.github/']
+          for f in changed_files:
+              for p in protected:
+                  if f.startswith(p) or f == p.rstrip('/'):
+                      print(f'::error::PR modifies protected file: {f}. Only environments/ changes are allowed.')
+                      sys.exit(1)
           
           # Check config is valid JSON
           try:
@@ -56,13 +68,12 @@ jobs:
               print('::error::No dimensions defined')
               sys.exit(1)
           
-          # Check each dimension has name + description
           for d in env['dimensions']:
               if 'name' not in d or 'description' not in d:
                   print(f'::error::Dimension missing name/description: {d}')
                   sys.exit(1)
           
-          # Token cap: check prompt size
+          # Token cap
           import os
           sys.path.insert(0, '.')
           os.environ['POSTPROPHET_TEMPERATURE'] = '0'
@@ -73,7 +84,7 @@ jobs:
               print(f'::error::Prompt exceeds 10K token cap ({token_estimate} est tokens)')
               sys.exit(1)
           
-          print(f'✅ Config valid: {len(env[\"dimensions\"])} dimensions, ~{token_estimate} tokens')
+          print(f'Valid config: {len(env[\"dimensions\"])} dimensions, ~{token_estimate} tokens')
           "
       
       - name: Run Stage 1 eval (historical, temp=0)

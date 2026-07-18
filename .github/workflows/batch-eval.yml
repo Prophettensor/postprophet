@@ -50,15 +50,8 @@ jobs:
       
       - name: Get fresh resolved predictions
         if: steps.find-prs.outputs.count != '0'
-        env:
-          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          POSTPROPHET_TEMPERATURE: '0'
         run: |
-          # Resolve any pending predictions first
-          python postprophet.py resolve 2>&1 || true
-          
-          # Get resolved predictions from last 24h
+          mkdir -p data
           python -c "
           import json
           from datetime import datetime, timezone, timedelta
@@ -83,9 +76,8 @@ jobs:
           if len(fresh) < 10:
               print(f'Only {len(fresh)} fresh predictions — need 10 minimum. Skipping batch.')
               with open('data/batch_fresh.json', 'w') as f:
-                  json.dump({'skip': True, 'count': len(fresh)}, f)
+                  json.dump({'skip': True, 'count': len(fresh)})
           else:
-              # Build fresh eval set
               fresh_set = []
               for p in fresh:
                   fresh_set.append({
@@ -104,12 +96,12 @@ jobs:
                   })
               
               with open('data/batch_fresh.json', 'w') as f:
-                  json.dump({'skip': False, 'count': len(fresh_set), 'tweets': fresh_set}, f)
+                  json.dump({'skip': False, 'count': len(fresh_set), 'tweets': fresh_set})
               
               print(f'{len(fresh_set)} fresh resolved predictions ready for batch eval')
           "
       
-      - name: Run baseline eval on fresh tweets
+      - name: Run baseline (current main) eval on fresh tweets
         if: steps.find-prs.outputs.count != '0'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -122,15 +114,19 @@ jobs:
           if data.get('skip'):
               print('Skipping batch — not enough fresh predictions')
               exit(0)
-          # Use fresh set as eval set
+          # Use fresh set as eval set for baseline run
           with open('data/eval_set.jsonl', 'w') as f:
               for t in data['tweets']:
                   f.write(json.dumps(t) + '\n')
           print(f'Fresh eval set: {len(data[\"tweets\"])} tweets')
           "
           
+          # Run baseline (current main config) on fresh tweets
           python run_duel.py 2>&1 || true
           
+          # Save baseline results
+          cp data/duel_results.json data/baseline_results.json
+      
       - name: Run each PR on fresh tweets
         if: steps.find-prs.outputs.count != '0'
         env:
@@ -139,7 +135,7 @@ jobs:
         run: |
           PRS='${{ steps.find-prs.outputs.prs }}'
           python -c "
-          import json, subprocess, sys
+          import json, subprocess, sys, os
           
           prs = json.loads('''$PRS''')
           if not prs:
@@ -152,29 +148,32 @@ jobs:
               print('Batch skipped — insufficient fresh predictions')
               exit(0)
           
-          print(f'Evaluating {len(prs)} PRs on {batch[\"count\"]} fresh tweets')
-          
-          # Read baseline results (just generated)
-          with open('data/duel_results.json') as f:
+          # Read baseline results (just run on main)
+          with open('data/baseline_results.json') as f:
               baseline = json.load(f)
+          
+          print(f'Evaluating {len(prs)} PRs on {batch[\"count\"]} fresh tweets')
           
           results = []
           for pr in prs:
               print(f'\\nEvaluating PR #{pr[\"number\"]}: {pr[\"title\"]}')
-              # Checkout PR branch
               subprocess.run(['git', 'stash'], check=False)
               subprocess.run(['git', 'checkout', pr['head']], check=True)
               
-              # Run eval
               try:
                   subprocess.run([sys.executable, 'run_duel.py'], check=True, timeout=300)
                   with open('data/duel_results.json') as f:
                       r = json.load(f)
+                  # Compare against baseline (fresh run, not original_probability)
+                  baseline_brier = baseline['challenger_brier']
+                  challenger_brier = r['challenger_brier']
+                  delta = baseline_brier - challenger_brier
                   results.append({
                       'number': pr['number'],
                       'title': pr['title'],
-                      'brier': r['challenger_brier'],
-                      'delta': r['delta'],
+                      'brier': challenger_brier,
+                      'baseline_brier': baseline_brier,
+                      'delta': round(delta, 4),
                       'hash': r.get('results_hash', 'unknown'),
                   })
               except Exception as e:
@@ -183,20 +182,19 @@ jobs:
                       'number': pr['number'],
                       'title': pr['title'],
                       'brier': 1.0,
+                      'baseline_brier': baseline.get('challenger_brier', 1.0),
                       'delta': -1.0,
                       'hash': 'error',
                   })
               
-              # Back to main
               subprocess.run(['git', 'checkout', 'main'], check=True)
               subprocess.run(['git', 'stash', 'pop'], check=False)
           
-          # Find best PR
           results.sort(key=lambda r: r['delta'], reverse=True)
           best = results[0]
           
           with open('data/batch_results.json', 'w') as f:
-              json.dump({'baseline_brier': baseline['baseline_brier'], 'results': results, 'best': best}, f, indent=2)
+              json.dump({'baseline_brier': baseline['challenger_brier'], 'results': results, 'best': best}, f, indent=2)
           
           print(f'\\nBest PR: #{best[\"number\"]} with delta {best[\"delta\"]:+.4f}')
           "
