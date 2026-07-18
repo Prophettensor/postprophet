@@ -1810,6 +1810,23 @@ def enrich_tweet_text(tweet: dict, author_id: str = None, reply_map: dict = None
         if not urls:
             return ""  # Skip emoji-only or empty
     
+    # Strip X-internal t.co URLs from text — the model shouldn't see
+    # media/video/quote-tweet URLs as external links. Only keep URLs
+    # that resolve to non-X sites (those are real external links).
+    urls = tweet.get("entities", {}).get("urls", [])
+    x_internal_tc_urls = set()
+    for u in urls:
+        expanded = u.get("expanded_url", "")
+        tco = u.get("url", "")
+        if tco and any(d in expanded for d in ["x.com", "twitter.com"]):
+            x_internal_tc_urls.add(tco)
+    
+    if x_internal_tc_urls:
+        for tco in x_internal_tc_urls:
+            text = text.replace(tco, "").strip()
+        # Clean up trailing whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+    
     return text
 
 
