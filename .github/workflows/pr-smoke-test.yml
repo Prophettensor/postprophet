@@ -6,6 +6,11 @@ on:
       - 'environments/twitter.json'
       - 'postprophet.py'
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
