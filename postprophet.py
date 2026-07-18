@@ -1366,7 +1366,12 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         result = json.loads(content) if content else {"probability": 0.5, "reasoning": "empty response", "suggestions": ""}
     except (json.JSONDecodeError, IndexError, TypeError):
         result = {"probability": 0.5, "reasoning": "parse error", "suggestions": ""}
-
+    
+    # Validate probability is a float 0.0-1.0
+    prob = result.get("probability", 0.5)
+    if not isinstance(prob, (int, float)) or prob < 0.0 or prob > 1.0:
+        result["probability"] = max(0.0, min(1.0, float(prob))) if isinstance(prob, (int, float)) else 0.5
+    
     return result
 
 
