@@ -48,11 +48,12 @@
     }
   ],
   "probability_guide": [
-    "All scores 7+ (especially specificity): 70-85%",
-    "Two scores 7+ (including specificity), rest decent: 45-60%",
-    "One score 7+ (specificity), rest weak: 25-40%",
-    "All scores below 6: 5-15%",
-    "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
+    "If all scores are 7+: output 0.50-0.70. (Base rate is 28% hit, strong content deserves above-base confidence.)",
+    "If two scores are 7+ (including specificity) and rest are decent (5+): output 0.35-0.50.",
+    "If one score is 7+ (specificity) and rest are weak: output 0.20-0.35.",
+    "If all scores are below 6: output 0.05-0.15.",
+    "If link_penalty_risk is below 5: cap at 0.25.",
+    "Calibration: if your track record shows overconfidence in a range, adjust down. If underconfident, adjust up."
   ],
   "extra_considerations": [
     "Author's follower count AND engagement baseline",
