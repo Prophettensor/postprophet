@@ -302,7 +302,14 @@ fetch('dashboard-data.json')
 
   // Prediction cards (tweet-style)
   const list = document.getElementById('preds-list');
-  data.recent_predictions.reverse().forEach((p, idx) => {
+  data.recent_predictions.sort((a, b) => {
+    // Sort by predicted_at descending (most recent first)
+    const aTime = a.predicted_at || '';
+    const bTime = b.predicted_at || '';
+    return bTime.localeCompare(aTime);
+  });
+  
+  data.recent_predictions.forEach((p, idx) => {
     const card = document.createElement('div');
     card.className = 'tweet-card';
     card.dataset.idx = idx;
