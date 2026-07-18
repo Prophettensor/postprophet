@@ -2,13 +2,13 @@
   "brier_history": [
     {
       "date": "2026-07-17",
-      "brier": 0.1775,
-      "cumulative_count": 330
+      "brier": 0.1776,
+      "cumulative_count": 347
     },
     {
       "date": "2026-07-18",
-      "brier": 0.2059,
-      "cumulative_count": 583
+      "brier": 0.2051,
+      "cumulative_count": 600
     }
   ],
   "calibration": [
@@ -21,14 +21,14 @@
     {
       "range": "10-30%",
       "predicted": 14,
-      "actual": 24,
-      "count": 151
+      "actual": 23,
+      "count": 158
     },
     {
       "range": "20-40%",
       "predicted": 24,
       "actual": 30,
-      "count": 264
+      "count": 274
     },
     {
       "range": "30-50%",
@@ -632,11 +632,11 @@
     }
   ],
   "stats": {
-    "total_resolved": 583,
-    "new_arch_resolved": 583,
-    "new_arch_brier": 0.2059,
-    "pending": 17,
+    "total_resolved": 600,
+    "new_arch_resolved": 600,
+    "new_arch_brier": 0.2051,
+    "pending": 7,
     "hit_rate": 28,
-    "last_updated": "2026-07-18T01:42:56.128112+00:00"
+    "last_updated": "2026-07-18T16:00:08.675928+00:00"
   }
 }
