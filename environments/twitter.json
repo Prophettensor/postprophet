@@ -19,7 +19,7 @@
     {
       "name": "emotional_trigger",
       "category": "Content quality",
-      "description": "Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)"
+      "description": "Does it make the reader feel something specific? Not vague engagement \u2014 a named emotion. Pride (\"our community built this\"), outrage (\"this is broken and here is why\"), curiosity (\"what happens when X reaches Y\"), FOMO (\"this is shipping now, not next quarter\"), validation (\"you were right about X\"). Neutral information delivery = below 5. If you can name the specific emotion the reader feels and it is strong, score 7+. Most tweets should score 4-6 \u2014 emotional resonance is rare and should not be given freely. But when it is present, it is one of the strongest predictors of reach."
     },
     {
       "name": "reply_inducement",
