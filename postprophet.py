@@ -9,6 +9,7 @@ import json
 import os
 import re
 import time
+import hashlib
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -2145,7 +2146,7 @@ def build_eval_set(predictions: list[dict] = None, min_size: int = 50):
     print(f"  Version: {HARNESS_VERSION} ({HARNESS_HASH})")
 
 
-def run_eval() -> dict:
+def run_eval(eval_set_path: str = None) -> dict:
     """Run the current harness against the frozen eval set.
     
     Re-predicts each tweet in the eval set using the current prompt/config,
@@ -2153,11 +2154,12 @@ def run_eval() -> dict:
     
     Returns {version, hash, brier, count, results}
     """
-    if not os.path.exists(EVAL_FILE):
+    eval_file = eval_set_path or EVAL_FILE
+    if not os.path.exists(eval_file):
         print("  No eval set found. Run 'python postprophet.py eval-set' first.")
         return {}
     
-    with open(EVAL_FILE) as f:
+    with open(eval_file) as f:
         eval_items = [json.loads(line) for line in f if line.strip()]
     
     if not eval_items:
@@ -2246,6 +2248,144 @@ def run_eval() -> dict:
         "count": len(results),
         "results": results,
     }
+
+
+def run_experiment(hypothesis: str):
+    """Run a self-improvement experiment.
+    
+    Takes a hypothesis, uses LLM to generate a prompt/config variant,
+    runs eval on both current and variant, reports which wins.
+    If variant wins by >0.01 Brier, commits the change.
+    
+    No X API cost — only LLM calls on the frozen eval set.
+    """
+    from openai import OpenAI
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+    
+    print("=" * 60)
+    print("  PostProphet — Self-Improvement Experiment")
+    print("=" * 60)
+    print(f"\n  Hypothesis: {hypothesis}\n")
+    
+    # 1. Load current config
+    env = load_environment()
+    current_config = json.dumps(env, indent=2)
+    
+    # 2. Generate variant config using LLM
+    print("  1. Generating variant config...")
+    variant_prompt = f"""You are improving a tweet reach prediction harness. The current scoring dimensions and prompt config are:
+
+{current_config}
+
+Hypothesis to test: {hypothesis}
+
+Generate a MODIFIED version of this JSON config that tests the hypothesis. Rules:
+- Keep the same JSON structure (dimensions, categories, descriptions, probability_guide, considerations)
+- Only change what the hypothesis suggests
+- Don't remove existing dimensions unless the hypothesis says to
+- Be specific — vague changes don't test anything
+- Keep it valid JSON
+
+Return ONLY the modified JSON, nothing else."""
+
+    resp = client.chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[{"role": "user", "content": variant_prompt}],
+        max_tokens=2000,
+        temperature=0.3,
+    )
+    
+    variant_json_str = resp.choices[0].message.content
+    if not variant_json_str:
+        print("  ⚠️  LLM returned empty response for variant config.")
+        return
+    variant_json_str = variant_json_str.strip()
+    # Strip markdown code fences if present
+    if variant_json_str.startswith("```"):
+        variant_json_str = variant_json_str.split("\n", 1)[1]
+        if variant_json_str.endswith("```"):
+            variant_json_str = variant_json_str.rsplit("```", 1)[0]
+    
+    try:
+        variant_env = json.loads(variant_json_str)
+    except json.JSONDecodeError as e:
+        print(f"  ⚠️  Variant config is invalid JSON: {e}")
+        return
+    
+    # Save variant config
+    variant_config_path = os.path.join(DATA_DIR, "experiment_config.json")
+    with open(variant_config_path, "w") as f:
+        json.dump(variant_env, f, indent=2)
+    
+    # Compute variant version hash
+    variant_hash = "v_" + hashlib.sha256(json.dumps(variant_env, sort_keys=True).encode()).hexdigest()[:8]
+    print(f"     Variant hash: {variant_hash}")
+    
+    # 3. Run baseline eval (current config)
+    print("\n  2. Running baseline eval (current config)...")
+    baseline_result = run_eval()
+    if not baseline_result:
+        print("  ⚠️  Baseline eval failed.")
+        return
+    baseline_brier = baseline_result["brier"]
+    print(f"     Baseline Brier: {baseline_brier:.4f}")
+    
+    # 4. Swap in variant config and run eval
+    print("\n  3. Running variant eval...")
+    env_path = os.path.join(os.path.dirname(__file__), "environments", "twitter.json")
+    
+    # Backup current config
+    with open(env_path) as f:
+        current_config_str = f.read()
+    
+    # Write variant config
+    with open(env_path, "w") as f:
+        json.dump(variant_env, f, indent=2)
+    
+    # Reload the prompt with new config
+    global PREDICTION_PROMPT, HARNESS_VERSION, HARNESS_HASH
+    PREDICTION_PROMPT = build_prompt(load_environment())
+    HARNESS_HASH = _compute_config_hash()
+    HARNESS_VERSION = HARNESS_VERSION  # Don't bump yet — just testing
+    
+    try:
+        variant_result = run_eval()
+    finally:
+        # Always restore original config
+        with open(env_path, "w") as f:
+            f.write(current_config_str)
+        PREDICTION_PROMPT = build_prompt(load_environment())
+        HARNESS_HASH = _compute_config_hash()
+    
+    if not variant_result:
+        print("  ⚠️  Variant eval failed. Config restored.")
+        return
+    
+    variant_brier = variant_result["brier"]
+    print(f"     Variant Brier: {variant_brier:.4f}")
+    
+    # 5. Compare
+    delta = baseline_brier - variant_brier
+    print(f"\n  {'─' * 40}")
+    print(f"  Baseline:  {baseline_brier:.4f} ({HARNESS_VERSION})")
+    print(f"  Variant:   {variant_brier:.4f} ({variant_hash})")
+    print(f"  Delta:     {delta:+.4f}")
+    
+    if delta > 0.01:
+        print(f"  Result:    IMPROVEMENT ✅ ({delta:.4f} better)")
+        print(f"\n  The variant improves Brier by {delta:.4f}.")
+        print(f"  To apply: edit environments/twitter.json with the variant config")
+        print(f"  Then run: python postprophet.py commit-version")
+        print(f"  Variant config saved: data/experiment_config.json")
+    elif delta < -0.01:
+        print(f"  Result:    REGRESSION ❌ ({abs(delta):.4f} worse)")
+        print(f"  Config restored to current. Variant discarded.")
+        os.remove(variant_config_path)
+    else:
+        print(f"  Result:    NO SIGNIFICANT CHANGE (|delta| < 0.01)")
+        print(f"  Config restored. Variant saved for reference: data/experiment_config.json")
+    
+    print(f"\n  {'─' * 40}")
 
 
 def ensure_dirs():
@@ -2702,6 +2842,7 @@ Usage:
   python postprophet.py predict <tweet> — Predict reach for an unpublished tweet
                                            (requires --author, optional: --target, --timeframe, --post-time)
   python craft.py --author <handle> --topic "<topic>"  — Iterative tweet improvement loop
+  python postprophet.py experiment "<hypothesis>"       — Self-improvement: test a config variant against eval set
 
 Scoring: content quality + algorithmic signals (0-10 scale)
 Target:  2x author's median impressions (aspirational, grounded in real history)
@@ -2719,7 +2860,14 @@ Environment:
 
     cmd = sys.argv[1]
 
-    if cmd == "suggest":
+    if cmd == "experiment":
+        if len(sys.argv) < 3:
+            print("  Usage: python postprophet.py experiment \"<hypothesis>\"")
+            print("  Example: python postprophet.py experiment \"add a dimension about tweet length\"")
+            return
+        hypothesis = sys.argv[2]
+        run_experiment(hypothesis)
+    elif cmd == "suggest":
         suggest_accounts()
     elif cmd == "backfill":
         backfill_predictions()
