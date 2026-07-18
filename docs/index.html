@@ -39,9 +39,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
 nav .inner{max-width:760px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
 .logo{text-decoration:none;color:var(--text);font-weight:800;font-size:1.05em;letter-spacing:-.02em}
-nav .links{display:flex;gap:24px;align-items:center}
-nav .links a{color:var(--text);text-decoration:none;font-size:.92em;font-weight:500;opacity:.7}
-nav .links a:hover{opacity:1}
+nav .links{display:flex;gap:20px;align-items:center}
+nav .links a{color:var(--text-secondary);text-decoration:none;font-size:.92em;font-weight:500}
+nav .links a:hover{color:var(--text)}
 .icon-btn{background:none;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:8px;display:flex;align-items:center;opacity:.6}
 .icon-btn:hover{background:var(--bg-elevated);opacity:1}
 
@@ -120,9 +120,7 @@ footer .bottom{max-width:760px;margin:32px auto 0;padding-top:20px;border-top:1p
   <div class="inner">
     <a href="/" class="logo">PostProphet</a>
     <div class="links">
-      <a href="#how">How it works</a>
-      <a href="eval.html">Live eval</a>
-      <a href="https://github.com/buckZz7/postprophet">GitHub</a>
+      <a href="eval.html">Eval</a>
       <button class="icon-btn" onclick="toggleTheme()" id="themeBtn"></button>
     </div>
   </div>
