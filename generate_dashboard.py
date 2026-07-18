@@ -108,6 +108,7 @@ def main():
             "has_external_url": p.get("has_external_url", False),
             "is_quote_tweet": p.get("is_quote_tweet", False),
             "predicted_at": p.get("predicted_at", ""),
+            "created_at": p.get("context", {}).get("created_at", ""),
         })
 
     # Overall new arch Brier

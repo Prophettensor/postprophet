@@ -303,9 +303,9 @@ fetch('dashboard-data.json')
   // Prediction cards (tweet-style)
   const list = document.getElementById('preds-list');
   data.recent_predictions.sort((a, b) => {
-    // Sort by predicted_at descending (most recent first)
-    const aTime = a.predicted_at || '';
-    const bTime = b.predicted_at || '';
+    // Sort by tweet post date (created_at) descending — most recent post first
+    const aTime = a.created_at || a.predicted_at || '';
+    const bTime = b.created_at || b.predicted_at || '';
     return bTime.localeCompare(aTime);
   });
   
