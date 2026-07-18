@@ -1,0 +1,268 @@
+name: Batch Eval (Stage 2)
+
+on:
+  schedule:
+    # Noon EST = 16:00 UTC, but run at 17:00 to let the daily cron resolve first
+    - cron: '0 17 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  batch-eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install httpx openai
+      
+      - name: Find batch-queued PRs
+        id: find-prs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'batch-queued',
+              state: 'open'
+            });
+            
+            const prs = data.filter(i => i.pull_request).map(i => ({
+              number: i.number,
+              title: i.title,
+              head: i.pull_request.head.sha,
+              created_at: i.created_at
+            }));
+            
+            console.log(`Found ${prs.length} batch-queued PRs`);
+            core.setOutput('prs', JSON.stringify(prs));
+            core.setOutput('count', prs.length.toString());
+      
+      - name: Get fresh resolved predictions
+        if: steps.find-prs.outputs.count != '0'
+        env:
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          POSTPROPHET_TEMPERATURE: '0'
+        run: |
+          # Resolve any pending predictions first
+          python postprophet.py resolve 2>&1 || true
+          
+          # Get resolved predictions from last 24h
+          python -c "
+          import json
+          from datetime import datetime, timezone, timedelta
+          
+          with open('data/predictions.jsonl') as f:
+              preds = [json.loads(l) for l in f if l.strip()]
+          
+          cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+          fresh = []
+          for p in preds:
+              if not p.get('resolved'):
+                  continue
+              predicted_at = p.get('predicted_at', '')
+              if predicted_at:
+                  try:
+                      dt = datetime.fromisoformat(predicted_at.replace('Z', '+00:00'))
+                      if dt > cutoff:
+                          fresh.append(p)
+                  except:
+                      pass
+          
+          if len(fresh) < 10:
+              print(f'Only {len(fresh)} fresh predictions — need 10 minimum. Skipping batch.')
+              with open('data/batch_fresh.json', 'w') as f:
+                  json.dump({'skip': True, 'count': len(fresh)}, f)
+          else:
+              # Build fresh eval set
+              fresh_set = []
+              for p in fresh:
+                  fresh_set.append({
+                      'tweet_id': p['tweet_id'],
+                      'text': p['context']['text'],
+                      'author': p['context']['author'],
+                      'author_baseline': p['context'].get('author_baseline', {}),
+                      'author_all_tweets': p['context'].get('author_all_tweets', []),
+                      'media': p['context'].get('media', {}),
+                      'target': p['target'],
+                      'actual_impressions': p['actual_impressions'],
+                      'hit': p['actual_impressions'] >= p['target'],
+                      'created_at': p['context'].get('created_at', ''),
+                      'original_probability': p['prediction']['probability'],
+                      'original_version': p.get('harness_version', 'unknown'),
+                  })
+              
+              with open('data/batch_fresh.json', 'w') as f:
+                  json.dump({'skip': False, 'count': len(fresh_set), 'tweets': fresh_set}, f)
+              
+              print(f'{len(fresh_set)} fresh resolved predictions ready for batch eval')
+          "
+      
+      - name: Run baseline eval on fresh tweets
+        if: steps.find-prs.outputs.count != '0'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          POSTPROPHET_TEMPERATURE: '0'
+        run: |
+          python -c "
+          import json
+          with open('data/batch_fresh.json') as f:
+              data = json.load(f)
+          if data.get('skip'):
+              print('Skipping batch — not enough fresh predictions')
+              exit(0)
+          # Use fresh set as eval set
+          with open('data/eval_set.jsonl', 'w') as f:
+              for t in data['tweets']:
+                  f.write(json.dumps(t) + '\n')
+          print(f'Fresh eval set: {len(data[\"tweets\"])} tweets')
+          "
+          
+          python run_duel.py 2>&1 || true
+          
+      - name: Run each PR on fresh tweets
+        if: steps.find-prs.outputs.count != '0'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          POSTPROPHET_TEMPERATURE: '0'
+        run: |
+          PRS='${{ steps.find-prs.outputs.prs }}'
+          python -c "
+          import json, subprocess, sys
+          
+          prs = json.loads('''$PRS''')
+          if not prs:
+              print('No PRs to evaluate')
+              exit(0)
+          
+          with open('data/batch_fresh.json') as f:
+              batch = json.load(f)
+          if batch.get('skip'):
+              print('Batch skipped — insufficient fresh predictions')
+              exit(0)
+          
+          print(f'Evaluating {len(prs)} PRs on {batch[\"count\"]} fresh tweets')
+          
+          # Read baseline results (just generated)
+          with open('data/duel_results.json') as f:
+              baseline = json.load(f)
+          
+          results = []
+          for pr in prs:
+              print(f'\\nEvaluating PR #{pr[\"number\"]}: {pr[\"title\"]}')
+              # Checkout PR branch
+              subprocess.run(['git', 'stash'], check=False)
+              subprocess.run(['git', 'checkout', pr['head']], check=True)
+              
+              # Run eval
+              try:
+                  subprocess.run([sys.executable, 'run_duel.py'], check=True, timeout=300)
+                  with open('data/duel_results.json') as f:
+                      r = json.load(f)
+                  results.append({
+                      'number': pr['number'],
+                      'title': pr['title'],
+                      'brier': r['challenger_brier'],
+                      'delta': r['delta'],
+                      'hash': r.get('results_hash', 'unknown'),
+                  })
+              except Exception as e:
+                  print(f'  Error: {e}')
+                  results.append({
+                      'number': pr['number'],
+                      'title': pr['title'],
+                      'brier': 1.0,
+                      'delta': -1.0,
+                      'hash': 'error',
+                  })
+              
+              # Back to main
+              subprocess.run(['git', 'checkout', 'main'], check=True)
+              subprocess.run(['git', 'stash', 'pop'], check=False)
+          
+          # Find best PR
+          results.sort(key=lambda r: r['delta'], reverse=True)
+          best = results[0]
+          
+          with open('data/batch_results.json', 'w') as f:
+              json.dump({'baseline_brier': baseline['baseline_brier'], 'results': results, 'best': best}, f, indent=2)
+          
+          print(f'\\nBest PR: #{best[\"number\"]} with delta {best[\"delta\"]:+.4f}')
+          "
+      
+      - name: Merge best PR or comment results
+        if: steps.find-prs.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let batchData;
+            try {
+              batchData = JSON.parse(fs.readFileSync('data/batch_results.json', 'utf8'));
+            } catch (e) {
+              console.log('No batch results — likely skipped due to insufficient predictions');
+              return;
+            }
+            
+            const baseline = batchData.baseline_brier;
+            const results = batchData.results;
+            const best = batchData.best;
+            
+            // Comment on all PRs
+            for (const r of results) {
+              let status = r.delta > 0.01 ? '✅ IMPROVEMENT' : r.delta < -0.01 ? '❌ REGRESSION' : '➖ WITHIN NOISE';
+              let body = `## Stage 2: Batch Eval Results\n\n`;
+              body += `**Fresh tweets evaluated:** ${JSON.parse(fs.readFileSync('data/batch_fresh.json')).count}\n`;
+              body += `**Baseline Brier:** ${baseline}\n`;
+              body += `**This PR Brier:** ${r.brier}\n`;
+              body += `**Delta:** ${r.delta > 0 ? '+' : ''}${r.delta}\n`;
+              body += `**Status:** ${status}\n`;
+              body += `**Hash:** \`${r.hash}\`\n\n`;
+              
+              if (r.number === best.number && r.delta > 0.01) {
+                body += `🏆 **BEST PR THIS BATCH — will be merged.**\n`;
+              } else if (r.number === best.number) {
+                body += `⏳ Best PR this batch but delta < 0.01 — no merge. Re-evaluating next batch.\n`;
+              } else {
+                body += `⏳ Outperformed by PR #${best.number}. Re-evaluating next batch.\n`;
+              }
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: r.number,
+                body: body
+              });
+            }
+            
+            // Merge best if delta > 0.01
+            if (best.delta > 0.01) {
+              console.log(`Merging PR #${best.number} with delta ${best.delta}`);
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: best.number,
+                merge_method: 'squash',
+                commit_title: `Merge PR #${best.number}: ${best.title} (Brier delta: +${best.delta})`,
+              });
+              
+              // Remove batch-queued label from merged PR
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: best.number,
+                name: 'batch-queued'
+              }).catch(() => {});
+            }
