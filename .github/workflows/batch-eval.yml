@@ -2,7 +2,7 @@ name: Batch Eval (Stage 2)
 
 on:
   schedule:
-    # Noon EST = 16:00 UTC, but run at 17:00 to let the daily cron resolve first
+    # 16:00 UTC daily — runs after the main cron resolves predictions
     - cron: '0 17 * * *'
   workflow_dispatch: # Allow manual trigger
 
@@ -40,7 +40,8 @@ jobs:
             const prs = data.filter(i => i.pull_request).map(i => ({
               number: i.number,
               title: i.title,
-              head: i.pull_request.head.sha,
+              head: i.pull_request.head.ref,
+              head_sha: i.pull_request.head.sha,
               created_at: i.created_at
             }));
             
@@ -132,23 +133,25 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           POSTPROPHET_TEMPERATURE: '0'
+          PRS_JSON: ${{ steps.find-prs.outputs.prs }}
         run: |
-          PRS='${{ steps.find-prs.outputs.prs }}'
+          mkdir -p data
           python -c "
-          import json, subprocess, sys, os
+          import json, os, subprocess
           
-          prs = json.loads('''$PRS''')
+          prs = json.loads(os.environ.get('PRS_JSON', '[]'))
           if not prs:
               print('No PRs to evaluate')
               exit(0)
           
+          # Read fresh predictions
           with open('data/batch_fresh.json') as f:
               batch = json.load(f)
           if batch.get('skip'):
               print('Batch skipped — insufficient fresh predictions')
               exit(0)
           
-          # Read baseline results (just run on main)
+          # Read baseline results
           with open('data/baseline_results.json') as f:
               baseline = json.load(f)
           
@@ -156,21 +159,24 @@ jobs:
           
           results = []
           for pr in prs:
-              print(f'\\nEvaluating PR #{pr[\"number\"]}: {pr[\"title\"]}')
+              # Use the SHA captured at batch start, not the branch name
+              # This prevents race condition if miner pushes during eval
+              head_sha = pr.get('head_sha', pr.get('head', ''))
+              print(f'\\nEvaluating PR #{pr[\"number\"]}: {pr[\"title\"]} (SHA: {head_sha[:8]})')
               subprocess.run(['git', 'stash'], check=False)
-              subprocess.run(['git', 'checkout', pr['head']], check=True)
+              subprocess.run(['git', 'checkout', head_sha], check=True)
               
               try:
                   subprocess.run([sys.executable, 'run_duel.py'], check=True, timeout=300)
                   with open('data/duel_results.json') as f:
                       r = json.load(f)
-                  # Compare against baseline (fresh run, not original_probability)
                   baseline_brier = baseline['challenger_brier']
                   challenger_brier = r['challenger_brier']
                   delta = baseline_brier - challenger_brier
                   results.append({
                       'number': pr['number'],
                       'title': pr['title'],
+                      'sha': head_sha[:8],
                       'brier': challenger_brier,
                       'baseline_brier': baseline_brier,
                       'delta': round(delta, 4),
@@ -181,6 +187,7 @@ jobs:
                   results.append({
                       'number': pr['number'],
                       'title': pr['title'],
+                      'sha': head_sha[:8],
                       'brier': 1.0,
                       'baseline_brier': baseline.get('challenger_brier', 1.0),
                       'delta': -1.0,

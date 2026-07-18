@@ -116,7 +116,7 @@ Step 6: Post results
 - The enclave proves the eval ran honestly on hidden data
 - Not needed now — eval set is public, transparency IS the trust
 
-**Eval set rotation:** Daily refresh from fresh resolved predictions (after cron resolves at noon EST). Overfitting to today's eval set doesn't survive tomorrow's rotation. No need for a hidden holdout set yet.
+**Eval set rotation:** Daily refresh from fresh resolved predictions (after cron resolves at 16:00 UTC). Overfitting to today's eval set doesn't survive tomorrow's rotation. No need for a hidden holdout set yet.
 
 ## Next steps
 

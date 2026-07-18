@@ -37,7 +37,7 @@ Runs automatically on PR open. Uses the historical eval set (50 randomly sampled
 
 ### Stage 2: Batch eval (forward-looking, ~46 hours)
 
-Runs daily at noon EST. Uses fresh tweets resolved in the last 24 hours — tweets that didn't exist when you submitted your PR.
+Runs daily at 16:00 UTC. Uses fresh tweets resolved in the last 24 hours — tweets that didn't exist when you submitted your PR.
 
 - Collects all `batch-queued` PRs
 - Runs each PR config + current config on the same fresh tweets

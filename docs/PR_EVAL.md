@@ -21,7 +21,7 @@ This stage IS gameable (miners can see the historical eval set). That's fine —
 
 ### Stage 2: Batch eval (24h, forward-looking, ungameable)
 
-PRs that pass Stage 1 enter a batch queue. At cron time (noon EST daily):
+PRs that pass Stage 1 enter a batch queue. At cron time (16:00 UTC daily):
 
 1. Collect all queued PRs
 2. The cron has been predicting fresh tweets all day with the current (main) config
@@ -37,7 +37,7 @@ The fresh tweets didn't exist when the PR was submitted. No overfitting possible
 
 ## Batch mechanics
 
-- Batch window: 24h (noon EST to noon EST)
+- Batch window: 24h (16:00 UTC to 16:00 UTC)
 - Minimum tweets per batch: 10 (if fewer, skip batch, wait another day)
 - All PRs in the same batch are evaluated on the same tweets → fair comparison
 - Only ONE PR merges per batch (the best one)
@@ -117,7 +117,7 @@ Total: ~46 hours from PR to merge decision. Forward-looking. Ungameable.
 6. Add label "batch-queued"
 ```
 
-### Daily cron (noon EST):
+### Daily cron (16:00 UTC):
 
 ```yaml
 1. Collect all PRs with "batch-queued" label
