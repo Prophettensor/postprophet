@@ -39,7 +39,7 @@
     {
       "name": "clarity_density",
       "category": "Algorithm signals",
-      "description": "Maximum insight per character. Every sentence carries a distinct idea. No filler, no throat-clearing. 'Stop doing X' > 'You should probably consider stopping doing X.'"
+      "description": "Maximum insight per character. Every sentence carries a distinct idea. No filler, no throat-clearing, no hedging. Examples of filler: \"I wanted to share\", \"It is worth noting that\", \"In my opinion\", \"I think that\". Examples of density: \"Subnet 17 just turned on its meter\" (8 words, 3 facts) vs \"We are excited to announce that subnet 17 has officially begun its metering phase\" (12 words, 2 facts). Shorter and more informative = higher. If you can remove a word without losing meaning, the word is filler."
     },
     {
       "name": "link_penalty_risk",
