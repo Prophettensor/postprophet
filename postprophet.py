@@ -1515,6 +1515,9 @@ def fetch_quoted_tweet(tweet: dict) -> dict | None:
     Uses the expansions parameter to get the quoted tweet in the same
     API response. If we already have the tweet data (from includes),
     use that. Otherwise, do a single tweet lookup.
+    
+    Also logs the quoted author for account discovery — being quoted
+    by a tracked account is a strong signal of ecosystem relevance.
     """
     refs = tweet.get("referenced_tweets", [])
     quoted_id = None
@@ -1547,9 +1550,114 @@ def fetch_quoted_tweet(tweet: dict) -> dict | None:
         users = data.get("includes", {}).get("users", [])
         if users:
             quoted["_author"] = users[0]
+            # Log for account discovery
+            _log_quoted_author(users[0])
         return quoted
     except Exception:
         return None
+
+
+_QUOTED_ACCOUNTS_FILE = os.path.join(os.path.dirname(__file__), "data", "quoted_accounts.json")
+
+
+def _log_quoted_author(author: dict):
+    """Log a quoted author for account discovery.
+    
+    Being quoted by a tracked account is a strong signal of ecosystem
+    relevance. We log each quote with the quoting account + timestamp.
+    Use 'suggest' command to see which accounts are worth tracking.
+    """
+    handle = author.get("username", "")
+    if not handle:
+        return
+    
+    # Don't log if already tracked
+    tracked = set(load_tracked_accounts())
+    if handle in tracked:
+        return
+    
+    log = []
+    if os.path.exists(_QUOTED_ACCOUNTS_FILE):
+        try:
+            with open(_QUOTED_ACCOUNTS_FILE) as f:
+                log = json.load(f)
+        except Exception:
+            log = []
+    
+    # Find or create entry
+    entry = None
+    for e in log:
+        if e.get("handle") == handle:
+            entry = e
+            break
+    
+    if entry is None:
+        entry = {
+            "handle": handle,
+            "author_id": author.get("id", ""),
+            "followers": author.get("public_metrics", {}).get("followers_count", 0),
+            "quoted_by": [],
+            "quote_count": 0,
+        }
+        log.append(entry)
+    
+    entry["followers"] = author.get("public_metrics", {}).get("followers_count", 0)
+    entry["quote_count"] = entry.get("quote_count", 0) + 1
+    # Update quoted_by list (avoid duplicates)
+    if "quoted_by" not in entry:
+        entry["quoted_by"] = []
+    
+    log.sort(key=lambda e: e.get("quote_count", 0), reverse=True)
+    
+    os.makedirs(os.path.dirname(_QUOTED_ACCOUNTS_FILE), exist_ok=True)
+    with open(_QUOTED_ACCOUNTS_FILE, "w") as f:
+        json.dump(log, f, indent=2)
+
+
+def suggest_accounts():
+    """Suggest accounts to track based on who gets quoted by tracked accounts.
+    
+    Being quoted is an explicit endorsement — the quoter put that account
+    on their timeline. Accounts quoted by 2+ tracked accounts are strong
+    candidates for the ecosystem.
+    """
+    if not os.path.exists(_QUOTED_ACCOUNTS_FILE):
+        print("  No quoted accounts logged yet.")
+        return
+    
+    with open(_QUOTED_ACCOUNTS_FILE) as f:
+        log = json.load(f)
+    
+    if not log:
+        print("  No quoted accounts logged yet.")
+        return
+    
+    tracked = set(load_tracked_accounts())
+    
+    # Filter: not already tracked, sorted by quote count
+    candidates = [e for e in log if e["handle"] not in tracked]
+    candidates.sort(key=lambda e: e.get("quote_count", 0), reverse=True)
+    
+    print("\n" + "=" * 60)
+    print("  PostProphet — Account Suggestions")
+    print("=" * 60)
+    print(f"\n  Accounts quoted by your tracked accounts (not yet tracked):\n")
+    
+    for e in candidates[:20]:
+        handle = e["handle"]
+        followers = e.get("followers", 0)
+        count = e.get("quote_count", 0)
+        quoted_by = e.get("quoted_by", [])
+        print(f"  @{handle} ({followers:,} followers)")
+        print(f"    Quoted {count}x by tracked accounts")
+        if quoted_by:
+            print(f"    By: {', '.join('@' + h for h in quoted_by[:5])}")
+        print()
+    
+    if candidates:
+        print(f"  To add: python postprophet.py add " + " ".join([e["handle"] for e in candidates[:5]]))
+    else:
+        print("  All quoted accounts are already tracked.")
 
 
 def fetch_thread_replies(tweet: dict, author_id: str) -> list[dict]:
@@ -2594,7 +2702,9 @@ Environment:
 
     cmd = sys.argv[1]
 
-    if cmd == "backfill":
+    if cmd == "suggest":
+        suggest_accounts()
+    elif cmd == "backfill":
         backfill_predictions()
     elif cmd == "eval-set":
         build_eval_set()
