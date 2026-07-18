@@ -20,7 +20,18 @@
 
 **Trigger for building:** When we have 100+ resolved predictions AND the data shows the model is systematically misweighting small-but-influential accounts.
 
-## Account Discovery from Tracked Replies
+## Video/Media Analysis (Future)
+
+**Idea:** When the harness gains video/image analysis capability (vision model), replace `[video attached]` / `[image attached]` placeholders in tweet text with actual content descriptions.
+
+**Current state:** X-internal t.co URLs (videos, images, quote tweets) are stripped from tweet text to prevent the model from flagging them as external links. The media analysis function (`analyze_media`) already detects media TYPE (photo, video, GIF) and describes images via gpt-4o-mini vision.
+
+**What's missing:**
+- Video content analysis (need vision model that can process video frames)
+- The URL is stripped, so when video analysis is added, need to replace the stripped URL with `[video attached]` placeholder, then expand it with content description
+- Audio analysis for Spaces/audio tweets
+
+**Trigger for building:** When video tweets show significantly different engagement patterns than text tweets and the model needs to understand WHY (video content quality, not just "has video").
 
 **Idea:** Automatically suggest new accounts to track based on who gets quoted by existing tracked accounts.
 
