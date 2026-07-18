@@ -424,19 +424,25 @@ def get_trending_topics():
     return [t["name"] for t in trends[:10]]
 
 
-def get_author_recent_tweets(author_id, max_results=10):
+def get_author_recent_tweets(author_id, max_results=10, exclude_replies=True):
     """Fetch an author's recent tweets to compute engagement baseline.
-    Filters out self-replies (thread continuations) which get artificially
+    Filters out self-replies (thread continuations) which get artificial
     low impressions — the API's exclude=replies does NOT filter self-replies.
-    Includes media data for each tweet."""
+    Includes media data for each tweet.
+    
+    If exclude_replies=False, returns ALL tweets including self-replies
+    (useful for thread detection — saves a separate search API call)."""
     url = "https://api.twitter.com/2/users/{}/tweets".format(author_id)
     params = {
         "max_results": max(10, min(max_results, 100)),
         "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets,attachments,entities",
-        "exclude": "retweets,replies",
         "expansions": "attachments.media_keys",
         "media.fields": "type,url,preview_image_url",
     }
+    if exclude_replies:
+        params["exclude"] = "retweets,replies"
+    else:
+        params["exclude"] = "retweets"
     resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
     if resp.status_code != 200:
         return []
@@ -447,14 +453,17 @@ def get_author_recent_tweets(author_id, max_results=10):
         attachments = tweet.get("attachments", {})
         media_keys = attachments.get("media_keys", []) if attachments else []
         tweet["_media"] = [media_map[k] for k in media_keys if k in media_map]
-    # Filter out self-replies (thread tails)
-    return [
-        t for t in tweets
-        if not (
-            t.get("in_reply_to_user_id")
-            and str(t.get("in_reply_to_user_id")) == str(author_id)
-        )
-    ]
+    
+    if exclude_replies:
+        # Filter out self-replies (thread tails) — only when excluding replies
+        return [
+            t for t in tweets
+            if not (
+                t.get("in_reply_to_user_id")
+                and str(t.get("in_reply_to_user_id")) == str(author_id)
+            )
+        ]
+    return tweets  # Return everything including self-replies for thread detection
 
 
 def compute_author_baseline(recent_tweets: list) -> dict:
@@ -1571,21 +1580,30 @@ def fetch_thread_replies(tweet: dict, author_id: str) -> list[dict]:
 
 
 def build_thread_context(tweet: dict, author_id: str) -> str:
-    """Build full thread text from parent + replies.
-    
-    Returns the complete thread as one text block, preserving order.
-    The model sees the full narrative, not just the first tweet.
-    """
+    """Build full thread text from parent + replies (fetched via search)."""
     parts = [tweet.get("text", "")]
-    
     replies = fetch_thread_replies(tweet, author_id)
     for reply in replies:
         parts.append(reply.get("text", ""))
-    
     if len(parts) == 1:
-        return parts[0]  # No replies, standalone tweet
+        return parts[0]
+    thread_text = "[THREAD START]\n"
+    for i, part in enumerate(parts):
+        thread_text += f"{i+1}/{len(parts)}: {part}\n"
+    thread_text += "[THREAD END]"
+    return thread_text
+
+
+def build_thread_context_from_data(tweet: dict, replies: list[dict]) -> str:
+    """Build full thread text from parent + replies (already fetched).
     
-    # Mark each part
+    Uses reply data from the same API batch — no extra search call needed.
+    """
+    parts = [tweet.get("text", "")]
+    for reply in replies:
+        parts.append(reply.get("text", ""))
+    if len(parts) == 1:
+        return parts[0]  # No replies, standalone
     thread_text = "[THREAD START]\n"
     for i, part in enumerate(parts):
         thread_text += f"{i+1}/{len(parts)}: {part}\n"
@@ -1624,13 +1642,16 @@ def build_quote_context(tweet: dict) -> str:
 
 
 
-def enrich_tweet_text(tweet: dict, author_id: str = None) -> str:
+def enrich_tweet_text(tweet: dict, author_id: str = None, reply_map: dict = None) -> str:
     """Enrich tweet text with full context.
     
     - Quote tweets: fetch original tweet, show both
-    - Threads: fetch replies, stitch together
+    - Threads: stitch from reply_map (if provided) or fetch via search
     - Link-only with X-internal URL: skip (return empty)
     - Standalone: return text as-is
+    
+    reply_map: optional dict of {parent_tweet_id: [replies]} from the
+    same API batch. Saves a separate search call for thread detection.
     """
     text = tweet.get("text", "")
     refs = tweet.get("referenced_tweets", [])
@@ -1639,15 +1660,16 @@ def enrich_tweet_text(tweet: dict, author_id: str = None) -> str:
     if any(r.get("type") == "quoted" for r in refs):
         return build_quote_context(tweet)
     
-    # Thread starter — fetch replies and stitch
-    if author_id and tweet.get("in_reply_to_user_id") and str(tweet["in_reply_to_user_id"]) == str(author_id):
-        return ""  # This is a thread reply, not the starter — skip
-    
-    # Check if this tweet starts a thread (has replies from same author)
+    # Thread starter — check reply_map first (free), then search API
     if author_id:
-        replies = fetch_thread_replies(tweet, author_id)
+        tweet_id = tweet.get("id", "")
+        replies = []
+        if reply_map and tweet_id in reply_map:
+            replies = reply_map[tweet_id]
+        else:
+            replies = fetch_thread_replies(tweet, author_id)
         if replies:
-            return build_thread_context(tweet, author_id)
+            return build_thread_context_from_data(tweet, replies)
     
     # Check if link-only with X-internal URL
     clean = re.sub(r'https?://\S+', '', text).strip()
@@ -1708,9 +1730,10 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             stats["skipped"] += 1
             continue
         
-        # Fetch 20 tweets (one API call)
+        # Fetch 20 tweets including self-replies (one API call)
+        # Self-replies are used for thread detection — saves separate search calls
         try:
-            all_tweets = get_author_recent_tweets(user_id, max_results=max_tweets_per_account)
+            all_tweets = get_author_recent_tweets(user_id, max_results=max_tweets_per_account, exclude_replies=False)
         except Exception as e:
             print(f" ❌ API error: {e}")
             stats["errors"] += 1
@@ -1721,9 +1744,30 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             stats["skipped"] += 1
             continue
         
-        # Tweets 1-10 = baseline (most recent), tweets 11+ = prediction targets
-        baseline_tweets = all_tweets[:10]
-        target_tweets = all_tweets[10:]
+        # Separate originals from self-replies
+        originals = [
+            t for t in all_tweets
+            if not (t.get("in_reply_to_user_id") and str(t.get("in_reply_to_user_id")) == str(user_id))
+        ]
+        self_replies = [
+            t for t in all_tweets
+            if t.get("in_reply_to_user_id") and str(t.get("in_reply_to_user_id")) == str(user_id)
+        ]
+        
+        # Baseline from first 10 originals (exclude self-replies — low impressions)
+        baseline_tweets = originals[:10]
+        # Target tweets = remaining originals (11+)
+        target_tweets = originals[10:]
+        
+        # Build a map of self-replies by parent tweet ID for thread stitching
+        reply_map = {}
+        for reply in self_replies:
+            for ref in reply.get("referenced_tweets", []):
+                if ref.get("type") == "replied_to":
+                    parent_id = ref.get("id")
+                    if parent_id not in reply_map:
+                        reply_map[parent_id] = []
+                    reply_map[parent_id].append(reply)
         
         # Compute baseline from first 10
         baseline = compute_author_baseline(baseline_tweets)
@@ -1755,7 +1799,7 @@ def backfill_predictions(max_tweets_per_account: int = 20):
                 continue
             
             # Enrich tweet text with full context (threads, quotes, etc.)
-            enriched_text = enrich_tweet_text(tweet, author_id=user_id)
+            enriched_text = enrich_tweet_text(tweet, author_id=user_id, reply_map=reply_map)
             if not enriched_text:
                 continue  # Link-only, emoji-only, or thread reply — skip
             
