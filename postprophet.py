@@ -1304,16 +1304,22 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     else:
         media_str = "  no media attached"
 
-    # Format link context
+    # Format link context — detect quote tweet from referenced_tweets
     has_url = context.get("has_url", False) or ("http" in context.get("text", "") or "https" in context.get("text", ""))
     has_ext = context.get("has_external_url", False)
-    is_quote = context.get("is_quote_tweet", False)
+    refs = context.get("referenced_tweets", [])
+    is_quote = context.get("is_quote_tweet", False) or any(r.get("type") == "quoted" for r in refs)
     if is_quote:
         link_context_str = "  Quote tweet (X-internal link, no algorithm penalty)"
     elif has_ext:
         link_context_str = "  External URL present (algorithm penalizes 30-94%)"
     elif has_url:
-        link_context_str = "  URL present (likely X-internal, no penalty unless external)"
+        # Check if URL is actually X-internal via entities
+        entities_urls = context.get("entities", {}).get("urls", [])
+        if entities_urls and all(any(d in u.get("expanded_url", "") for d in ["x.com", "twitter.com"]) for u in entities_urls):
+            link_context_str = "  URL present (X-internal link, no algorithm penalty)"
+        else:
+            link_context_str = "  External URL present (algorithm penalizes 30-94%)"
     else:
         link_context_str = "  No links"
 
