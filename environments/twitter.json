@@ -44,7 +44,7 @@
     {
       "name": "link_penalty_risk",
       "category": "Algorithm signals",
-      "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet)? No link or quote tweet only = 10 (safe). External link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."
+      "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet or media)? External links reduce reach 30-94% in most cases. BUT: if the link goes to the author own product, article, or thread, the penalty may be lower because the audience expects it. No link or quote tweet only = 10 (safe). External link to own domain (blog, product, docs) = 5-7 (moderate penalty). External link to third-party site (news, random URL) = 0-3 (severe penalty). Link in bio/reply workaround = 7-8. Higher score = safer."
     }
   ],
   "probability_guide": [
