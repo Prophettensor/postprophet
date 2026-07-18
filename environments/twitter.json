@@ -19,7 +19,7 @@
     {
       "name": "emotional_trigger",
       "category": "Content quality",
-      "description": "Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)"
+      "description": "Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse). Emotional resonance drives shares and replies."
     },
     {
       "name": "reply_inducement",
