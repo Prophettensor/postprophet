@@ -93,6 +93,9 @@ def pick_fresh_tweet(tweets, max_age_hours=12, author_id=None):
     """From a list of tweets, return the first one that's:
     1. Under max_age_hours old
     2. Not a self-reply (thread continuation)
+    3. Not a quote tweet (can't see quoted content yet)
+    4. Not a thread reply (need full thread context)
+    5. Not link-only with X-internal URL (can't evaluate)
     Returns None if none qualify."""
     if not tweets:
         return None
@@ -114,6 +117,25 @@ def pick_fresh_tweet(tweets, max_age_hours=12, author_id=None):
         in_reply_to = tweet.get("in_reply_to_user_id")
         if in_reply_to and author_id and str(in_reply_to) == str(author_id):
             continue
+
+        # Skip quote tweets — can't see quoted content yet (future feature)
+        refs = tweet.get("referenced_tweets", [])
+        if any(r.get("type") == "quoted" for r in refs):
+            continue
+
+        # Skip thread replies — need full thread context (future feature)
+        if any(r.get("type") == "replied_to" for r in refs):
+            continue
+
+        # Skip link-only tweets with X-internal URLs
+        clean = re.sub(r'https?://\S+', '', tweet.get("text", "")).strip()
+        if len(clean) < 15:
+            urls = tweet.get("entities", {}).get("urls", [])
+            if urls and all(
+                any(d in u.get("expanded_url", "") for d in ["x.com", "twitter.com"])
+                for u in urls
+            ):
+                continue
 
         return tweet
     return None
@@ -944,7 +966,7 @@ def build_prompt(env: dict) -> str:
     json_fields.append(f'  "point_estimate": <integer, your best guess at total {env["metric"]} after {{timeframe}}h>')
     json_fields.append(f'  "reasoning": "<2-3 sentences. Reference specific data: which of their past content is this most similar to? What makes it better or worse?>"')
     json_fields.append(f'  "pattern_analysis": "<1-2 sentences. What specific pattern does their best content use that this should match?>"')
-    json_fields.append(f'  "suggestions": "<Rewrite directive. Identify the WEAKEST dimension and give specific, actionable advice on how to fix it. If the hook is weak, suggest a stronger angle. If specificity is low, name what should be quantified. If emotion is missing, identify what feeling to target. Do NOT just rephrase the opening line — diagnose the real problem and prescribe the fix.>"')
+    json_fields.append(f'  "suggestions": "<Rewrite directive. Identify the WEAKEST dimension by name and score. Explain WHY it scored low with a specific reference to this tweet vs their best content. Then prescribe one concrete fix — not a rephrased opener, but a structural change. Example: their best tweet opens with a specific number; this one opens with a vague claim. Fix: replace the first sentence with the actual metric. Another example: their best tweet ends with an implicit question that drives replies; this one ends with a statement. Fix: reframe the ending as a question only an insider would answer. Match the quality of their best work, not generic best practices.>"')
     json_str = ",\n".join(json_fields)
     
     content_type = env.get("content_type", "post")
@@ -1594,6 +1616,15 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             
             # Skip tweets with no text at all
             if not tweet.get("text", "").strip():
+                continue
+            
+            # Skip quote tweets — can't see quoted content yet (future feature)
+            refs = tweet.get("referenced_tweets", [])
+            if any(r.get("type") == "quoted" for r in refs):
+                continue
+            
+            # Skip tweets that are replies in threads — need full thread context (future feature)
+            if any(r.get("type") == "replied_to" for r in refs):
                 continue
     
             # Skip link-only tweets that resolve to X-internal URLs

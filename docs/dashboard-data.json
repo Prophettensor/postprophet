@@ -26,25 +26,25 @@
       "range": "0-20%",
       "predicted": 5,
       "actual": 0,
-      "count": 10
+      "count": 6
     },
     {
       "range": "10-30%",
-      "predicted": 14,
-      "actual": 20,
-      "count": 181
+      "predicted": 15,
+      "actual": 22,
+      "count": 109
     },
     {
       "range": "20-40%",
       "predicted": 24,
       "actual": 24,
-      "count": 225
+      "count": 185
     },
     {
       "range": "30-50%",
       "predicted": 35,
       "actual": 11,
-      "count": 19
+      "count": 18
     },
     {
       "range": "40-60%",
@@ -60,6 +60,114 @@
     }
   ],
   "recent_predictions": [
+    {
+      "author": "webuildscore",
+      "target": 12075,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 6591,
+      "hit": false,
+      "prediction_correct": true,
+      "text": "The skills miners distill daily on SN44 might have cracked the single biggest pain point fuel retailers have.\n\nAt unmanned stations especially, the question they always ask is:\n\n\"Tell me the moment there's a payment terminal issue.\"\n\nThe catch: the payment systems themselves https://t.co/9UNxt5FGZB",
+      "reasoning": "This tweet has a strong hook and is visually engaging due to the infographic, but it lacks a strong emotional trigger and specificity. The author's previous high-performing tweets often feature clearer emotional appeals and concrete details. The presence of an external link also significantly reduces its reach potential.",
+      "suggestions": "The skills miners distill daily on SN44 could revolutionize fuel retail.",
+      "scores": {
+        "hook_strength": 7,
+        "specificity": 6,
+        "emotional_trigger": 5,
+        "reply_inducement": 6,
+        "bookmark_worthiness": 7,
+        "structure_readability": 8,
+        "clarity_density": 6,
+        "link_penalty_risk": 3
+      },
+      "followers": 9108,
+      "elapsed": "421.3h",
+      "has_url": true,
+      "has_external_url": false,
+      "is_quote_tweet": false
+    },
+    {
+      "author": "webuildscore",
+      "target": 12075,
+      "probability": 10,
+      "verdict": "NO",
+      "actual": 6486,
+      "hit": false,
+      "prediction_correct": true,
+      "text": "Our (old) logo would look good in purple \ud83d\udc7e\n\n@krakenfx just added Score SN44 to their listings roadmap.\n\nhttps://t.co/bPEcaZqfw0\n\n$TAO https://t.co/29AE1sLwZE",
+      "reasoning": "This tweet lacks a strong hook and emotional engagement, scoring below 6 on several dimensions. The inclusion of external links also significantly reduces its reach potential. Compared to the author's best tweets, it does not present a compelling narrative or urgency.",
+      "suggestions": "Try starting with 'Exciting news about our logo update!'",
+      "scores": {
+        "hook_strength": 5,
+        "specificity": 4,
+        "emotional_trigger": 3,
+        "reply_inducement": 5,
+        "bookmark_worthiness": 4,
+        "structure_readability": 6,
+        "clarity_density": 5,
+        "link_penalty_risk": 2
+      },
+      "followers": 9108,
+      "elapsed": "437.7h",
+      "has_url": true,
+      "has_external_url": true,
+      "is_quote_tweet": false
+    },
+    {
+      "author": "zeussubnet",
+      "target": 3288,
+      "probability": 20,
+      "verdict": "NO",
+      "actual": 9893,
+      "hit": true,
+      "prediction_correct": false,
+      "text": "Zeus vs ECMWF IFS &amp; AIFS. The best models on Earth.\n\nEvery step, lower RMSE (higher accuracy). No exceptions. \n\nTemperature (2m), 15 days out. https://t.co/oGHTPI7EPz",
+      "reasoning": "This tweet has a strong specificity score due to the mention of specific models and metrics, which aligns with the author's best-performing tweets that often include concrete data. However, the emotional trigger is weak, and the presence of an external link significantly lowers the reach potential.",
+      "suggestions": "Start with: 'Discover how Zeus outperforms ECMWF IFS & AIFS!'",
+      "scores": {
+        "hook_strength": 6,
+        "specificity": 7,
+        "emotional_trigger": 5,
+        "reply_inducement": 6,
+        "bookmark_worthiness": 7,
+        "structure_readability": 6,
+        "clarity_density": 7,
+        "link_penalty_risk": 3
+      },
+      "followers": 2462,
+      "elapsed": "1683.0h",
+      "has_url": true,
+      "has_external_url": false,
+      "is_quote_tweet": false
+    },
+    {
+      "author": "zeussubnet",
+      "target": 3288,
+      "probability": 25,
+      "verdict": "NO",
+      "actual": 827,
+      "hit": false,
+      "prediction_correct": true,
+      "text": "2026: The year of a SUPER EL NI\u00d1O?\n\nLong-range weather models are converging toward an El Ni\u00f1o developing by late 2026, approaching record-breaking intensity.\n\nHistorically, El Ni\u00f1o episodes brought record temperatures, extreme heat, droughts, flooding, and highly volatile",
+      "reasoning": "This tweet has a strong hook with the mention of 'SUPER EL NI\u00d1O', which aligns with the author's best-performing content that often includes bold claims. However, the specificity is moderate, and while it invites some engagement, it lacks a strong emotional trigger. Given the link penalty risk is high, it caps the potential reach significantly.",
+      "suggestions": "What if 2026 is the year of a record-breaking SUPER EL NI\u00d1O?",
+      "scores": {
+        "hook_strength": 7,
+        "specificity": 6,
+        "emotional_trigger": 5,
+        "reply_inducement": 6,
+        "bookmark_worthiness": 7,
+        "structure_readability": 6,
+        "clarity_density": 6,
+        "link_penalty_risk": 10
+      },
+      "followers": 2462,
+      "elapsed": "1711.4h",
+      "has_url": false,
+      "has_external_url": false,
+      "is_quote_tweet": false
+    },
     {
       "author": "zeussubnet",
       "target": 3288,
@@ -86,33 +194,6 @@
       "has_url": true,
       "has_external_url": false,
       "is_quote_tweet": false
-    },
-    {
-      "author": "zeussubnet",
-      "target": 3288,
-      "probability": 25,
-      "verdict": "NO",
-      "actual": 1999,
-      "hit": false,
-      "prediction_correct": true,
-      "text": "\ud83d\udd25 The two TOP teams battling it out on Zeus.\n\nSnapshot of their past 14 days performance (rank) on global, 48h, 2m temperature forecast runs.\n\nSoon, a clear view of how they stack up against the world\u2019s best models. https://t.co/WLjuhXfnEc https://t.co/YAxBqKr0ce",
-      "reasoning": "This tweet has a strong hook and specific content, similar to the author's top-performing tweets which often include data and visuals. However, the emotional trigger is moderate, and the presence of external links introduces a significant risk to reach.",
-      "suggestions": "\ud83d\udd25 Check out the latest rankings of the top teams on Zeus!",
-      "scores": {
-        "hook_strength": 8,
-        "specificity": 7,
-        "emotional_trigger": 6,
-        "reply_inducement": 5,
-        "bookmark_worthiness": 8,
-        "structure_readability": 7,
-        "clarity_density": 7,
-        "link_penalty_risk": 3
-      },
-      "followers": 2462,
-      "elapsed": "2096.1h",
-      "has_url": true,
-      "has_external_url": false,
-      "is_quote_tweet": true
     },
     {
       "author": "zeussubnet",
@@ -331,87 +412,6 @@
       "is_quote_tweet": false
     },
     {
-      "author": "leadpoetai",
-      "target": 4273,
-      "probability": 15,
-      "verdict": "NO",
-      "actual": 8271,
-      "hit": true,
-      "prediction_correct": false,
-      "text": "Excited to be on @twistartups today!\n\nWe\u2019re sharing what we\u2019re building at Leadpoet and how agents are reshaping sales.\n\nTune in live or catch the recording \ud83d\udc47 https://t.co/2hrCI0rQoF",
-      "reasoning": "This tweet has a decent hook and specificity, but lacks strong emotional triggers and reply inducement. It is similar to the author's lower-performing tweets, which generally did not exceed 2,000 impressions. The presence of an external link significantly reduces the reach potential.",
-      "suggestions": "Excited to share our latest project at Leadpoet!",
-      "scores": {
-        "hook_strength": 6,
-        "specificity": 7,
-        "emotional_trigger": 5,
-        "reply_inducement": 6,
-        "bookmark_worthiness": 5,
-        "structure_readability": 7,
-        "clarity_density": 6,
-        "link_penalty_risk": 2
-      },
-      "followers": 2653,
-      "elapsed": "2790.3h",
-      "has_url": true,
-      "has_external_url": false,
-      "is_quote_tweet": true
-    },
-    {
-      "author": "minotaursubnet",
-      "target": 1864,
-      "probability": 10,
-      "verdict": "NO",
-      "actual": 1913,
-      "hit": true,
-      "prediction_correct": false,
-      "text": "In the words of Minotaur's founder @tsliceAI on the Subnet Summer X Space:\n\n\u201cMinotaur is kind of like Bittensor. The goal is to have thousands of users, but they don\u2019t need to know they\u2019re using Minotaur.\u201d\n\nThat is the point.\n\nUsers do not need to understand the Solving Engine, https://t.co/PiOo9oaU24 https://t.co/SfiBNKLlKl",
-      "reasoning": "This tweet lacks a strong hook and emotional engagement, similar to lower-performing tweets from the author. The presence of external links significantly reduces its reach potential. The specificity and clarity are moderate but do not elevate the tweet to standout status.",
-      "suggestions": "Start with a bold statement: 'Minotaur transforms user experience without them knowing.'",
-      "scores": {
-        "hook_strength": 6,
-        "specificity": 5,
-        "emotional_trigger": 4,
-        "reply_inducement": 5,
-        "bookmark_worthiness": 4,
-        "structure_readability": 6,
-        "clarity_density": 5,
-        "link_penalty_risk": 2
-      },
-      "followers": 1377,
-      "elapsed": "704.5h",
-      "has_url": true,
-      "has_external_url": false,
-      "is_quote_tweet": true
-    },
-    {
-      "author": "minotaursubnet",
-      "target": 1864,
-      "probability": 15,
-      "verdict": "NO",
-      "actual": 719,
-      "hit": false,
-      "prediction_correct": true,
-      "text": "Minotaur's co-founder @tsliceAI will be speaking at today\u2019s Subnet Summer X Space.\n\nThe discussion will cover key takeaways from Proof of Talk 2026, where the Minotaur team had the opportunity to share what we\u2019re building with builders, investors, and leaders across Bittensor and https://t.co/geXKWChirW",
-      "reasoning": "This tweet has a moderate hook strength and specificity due to the mention of a specific event and speaker, but lacks strong emotional triggers and reply inducement. The presence of an external link significantly penalizes its reach potential. Compared to the author's best-performing tweets, this tweet is less engaging and lacks the bold claims or excitement that typically drives higher impressions.",
-      "suggestions": "Join us today for key insights from Proof of Talk 2026!",
-      "scores": {
-        "hook_strength": 6,
-        "specificity": 7,
-        "emotional_trigger": 5,
-        "reply_inducement": 4,
-        "bookmark_worthiness": 6,
-        "structure_readability": 5,
-        "clarity_density": 6,
-        "link_penalty_risk": 2
-      },
-      "followers": 1377,
-      "elapsed": "850.0h",
-      "has_url": true,
-      "has_external_url": false,
-      "is_quote_tweet": true
-    },
-    {
       "author": "mvtrx_79",
       "target": 1125,
       "probability": 25,
@@ -602,11 +602,11 @@
     }
   ],
   "stats": {
-    "total_resolved": 447,
-    "new_arch_resolved": 447,
-    "new_arch_brier": 0.1723,
+    "total_resolved": 330,
+    "new_arch_resolved": 330,
+    "new_arch_brier": 0.1797,
     "pending": 17,
-    "hit_rate": 21,
+    "hit_rate": 22,
     "last_updated": "2026-07-17T23:35:38.819384+00:00"
   }
 }
