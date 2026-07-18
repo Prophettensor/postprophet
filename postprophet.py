@@ -2101,22 +2101,24 @@ EVAL_FILE = os.path.join(DATA_DIR, "eval_set.jsonl")
 def build_eval_set(predictions: list[dict] = None, min_size: int = 50):
     """Build or update the frozen eval set from resolved predictions.
     
-    The eval set is a snapshot of resolved predictions used to score PRs.
-    Miners never see which tweets are in the eval set.
+    RANDOMLY samples from all resolved predictions, not just most recent.
+    This prevents miners from tuning to specific tweets they know will
+    be in the next eval set.
     
-    Takes the most recent resolved predictions up to min_size.
-    Refreshed periodically (not on every run) to prevent overfitting.
+    Refreshed daily by the cron to prevent overfitting.
     """
+    import random
+    
     if predictions is None:
         predictions = load_predictions()
     
     resolved = [p for p in predictions if p.get("resolved") is True]
-    if len(resolved) < 10:
-        print(f"  Not enough resolved predictions for eval set ({len(resolved)}/10 min)")
+    if len(resolved) < min_size:
+        print(f"  Not enough resolved predictions for eval set ({len(resolved)}/{min_size} min)")
         return
     
-    # Take most recent resolved, up to min_size
-    eval_preds = sorted(resolved, key=lambda p: p.get("resolved_at", p.get("predicted_at", "")), reverse=True)[:min_size]
+    # Random sample from ALL resolved, not just most recent
+    eval_preds = random.sample(resolved, min(min_size, len(resolved)))
     
     # Strip the prediction (probability) — eval re-runs the harness
     # Keep: tweet text, author, baseline, target, actual impressions
