@@ -24,7 +24,7 @@
     {
       "name": "reply_inducement",
       "category": "Algorithm signals",
-      "description": "Does it invite response? Open questions, contrarian claims, fill-in-the-blank formats = high (replies are worth 27-150x a like). 'Thoughts?' or 'Anyone else?' = low. Specific, answerable questions = high."
+      "description": "Does it make people want to reply? Open questions that only insiders can answer, contrarian takes that provoke disagreement, bold predictions that invite challenge = high. Replies are worth 27-150x a like. The algorithm heavily rewards reply velocity in the first 30 minutes. \"Thoughts?\" or \"Anyone else?\" = low (lazy, no specific question). A specific, answerable question that only someone with domain expertise would answer = high. A bold claim that makes people want to correct you = high."
     },
     {
       "name": "bookmark_worthiness",
