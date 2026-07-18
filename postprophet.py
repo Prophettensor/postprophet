@@ -1357,7 +1357,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
             {"role": "system", "content": "You are a social media reach prediction harness. You predict impression probability from content, author baseline, and timing only. You never see engagement metrics for the tweet being predicted. Output only valid JSON."},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.3,
+        temperature=float(os.environ.get("POSTPROPHET_TEMPERATURE", "0.3")),
         response_format={"type": "json_object"},
     )
 
@@ -2292,7 +2292,7 @@ Return ONLY the modified JSON, nothing else."""
         model=OPENAI_MODEL,
         messages=[{"role": "user", "content": variant_prompt}],
         max_tokens=2000,
-        temperature=0.3,
+        temperature=float(os.environ.get("POSTPROPHET_TEMPERATURE", "0.3")),
     )
     
     variant_json_str = resp.choices[0].message.content

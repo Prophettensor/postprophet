@@ -87,14 +87,36 @@ Step 6: Post results
 | Version auto-hash | ✅ Built | `python postprophet.py version` |
 | Probability validation | ✅ Built | Clamps to 0.0-1.0 |
 | Per-tweet results | ✅ Built | `run_duel.py` saves all 50 |
-| GitHub PR creation | ✅ Built | Via API in this session |
-| Duels dashboard | ✅ Built | All 50 results + PR link |
-| GitHub Action (auto-eval on PR) | ❌ Not built | Next step |
-| Holdout eval set | ❌ Not built | Need 100+ resolved predictions |
+| Raw LLM responses | ✅ Built | `data/duel_raw.json` with full predictions |
+| Results hash (SHA256) | ✅ Built | Tamper-evident verification |
+| Temperature 0 for eval | ✅ Built | `POSTPROPHET_TEMPERATURE=0` |
+| GitHub PR creation | ✅ Built | Via API |
+| Duels dashboard | ✅ Built | All 50 results + PR link + hash |
+| Docker image | 🔜 Next | Reproducible environment |
+| GitHub Action (auto-eval on PR) | 🔜 Next | Public CI logs, auto-merge |
+| Eval set rotation | 🔜 Next | Daily refresh from fresh resolved predictions |
+| Holdout eval set | ❌ Deferred | Need 200+ resolved predictions |
+| TEE attestation | ❌ Deferred | Only needed for private holdout set |
 | Token cap validation | ❌ Not built | Need prompt token counter |
 | Rate limiting | ❌ Not built | Needs GitHub Action + state |
 | Win rate tracking | ❌ Not built | Needs persistent state |
 | Auto-merge | ❌ Not built | Needs GitHub Action with write access |
+
+## Trust model
+
+**Current (building now):** Docker + GitHub Actions + temp=0 + results hash
+- Eval runs in public CI, logs are visible
+- Same Docker image = same environment
+- Temperature 0 = deterministic outputs
+- SHA256 hash of raw results = tamper-evident
+- Miner reproduces locally, compares hash
+
+**Future (if needed):** TEE attestation
+- Only necessary when we add a private holdout set miners can't see
+- The enclave proves the eval ran honestly on hidden data
+- Not needed now — eval set is public, transparency IS the trust
+
+**Eval set rotation:** Daily refresh from fresh resolved predictions (after cron resolves at noon EST). Overfitting to today's eval set doesn't survive tomorrow's rotation. No need for a hidden holdout set yet.
 
 ## Next steps
 
