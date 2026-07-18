@@ -944,7 +944,7 @@ def build_prompt(env: dict) -> str:
     json_fields.append(f'  "point_estimate": <integer, your best guess at total {env["metric"]} after {{timeframe}}h>')
     json_fields.append(f'  "reasoning": "<2-3 sentences. Reference specific data: which of their past content is this most similar to? What makes it better or worse?>"')
     json_fields.append(f'  "pattern_analysis": "<1-2 sentences. What specific pattern does their best content use that this should match?>"')
-    json_fields.append(f'  "suggestions": "<Rewrite directive. Give the EXACT opening 5-10 words the writer should use, modeled on their best content.>"')
+    json_fields.append(f'  "suggestions": "<Rewrite directive. Identify the WEAKEST dimension and give specific, actionable advice on how to fix it. If the hook is weak, suggest a stronger angle. If specificity is low, name what should be quantified. If emotion is missing, identify what feeling to target. Do NOT just rephrase the opening line — diagnose the real problem and prescribe the fix.>"')
     json_str = ",\n".join(json_fields)
     
     content_type = env.get("content_type", "post")
@@ -981,6 +981,7 @@ def build_prompt(env: dict) -> str:
         "Ecosystem context (across {eco_accounts} accounts):\n" \
         "{ecosystem}\n" \
         "Media: {media}\n" \
+        "Link context: {link_context}\n" \
         "Calibration feedback: {calibration}\n" \
         "Posted at: {posted_at}\n" \
         "Time elapsed since posting: {elapsed}\n" \
@@ -1281,6 +1282,19 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     else:
         media_str = "  no media attached"
 
+    # Format link context
+    has_url = context.get("has_url", False) or ("http" in context.get("text", "") or "https" in context.get("text", ""))
+    has_ext = context.get("has_external_url", False)
+    is_quote = context.get("is_quote_tweet", False)
+    if is_quote:
+        link_context_str = "  Quote tweet (link is X-internal, NOT penalized by algorithm)"
+    elif has_ext:
+        link_context_str = "  External URL present (penalized 30-94% by algorithm)"
+    elif has_url:
+        link_context_str = "  URL present in text (treat as external unless clearly X-internal)"
+    else:
+        link_context_str = "  No links"
+
     # Compute calibration feedback from resolved predictions
     cal = compute_calibration()
     calibration_str = format_calibration_for_prompt(cal) if cal else "  (not enough resolved predictions yet — keep predicting)"
@@ -1300,6 +1314,7 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         eco_accounts=eco_accounts,
         ecosystem=ecosystem_str,
         media=media_str,
+        link_context=link_context_str,
         calibration=calibration_str,
         posted_at=posted_at_str,
         elapsed=elapsed_str,
