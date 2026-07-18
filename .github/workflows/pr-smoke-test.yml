@@ -77,7 +77,14 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           POSTPROPHET_TEMPERATURE: '0'
         run: |
-          python run_duel.py 2>&1 | tee eval_output.txt
+          mkdir -p data
+          python run_duel.py 2>&1 || true
+          
+          # Check if results exist
+          if [ ! -f data/duel_results.json ]; then
+            echo "::error::Eval did not produce results"
+            exit 1
+          fi
           
           # Extract results
           python -c "
@@ -95,7 +102,14 @@ jobs:
           print(f'DELTA={delta}')
           print(f'HASH={rhash}')
           
-          # Smoke test gate: regression > 0.05 = auto-close
+          # Set outputs for downstream steps
+          import os
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'BASELINE={baseline}\n')
+              f.write(f'CHALLENGER={challenger}\n')
+              f.write(f'DELTA={delta}\n')
+              f.write(f'HASH={rhash}\n')
+          
           if delta < -0.05:
               print('::notice::REGRESSION — PR will be auto-closed')
           elif delta > 0.01:
@@ -106,6 +120,8 @@ jobs:
       
       - name: Comment results on PR
         uses: actions/github-script@v7
+        env:
+          DELTA: ${{ steps.eval.outputs.DELTA }}
         with:
           script: |
             const fs = require('fs');
@@ -120,6 +136,13 @@ jobs:
             let emoji = '➖';
             if (delta > 0.01) { status = 'IMPROVEMENT'; emoji = '✅'; }
             else if (delta < -0.05) { status = 'REGRESSION'; emoji = '❌'; }
+            
+            let perTweetRows = '';
+            if (results.per_tweet) {
+              perTweetRows = results.per_tweet.map(t => 
+                `| @${t.author} | ${t.target.toLocaleString()} | ${t.actual_impressions.toLocaleString()} | ${t.hit ? 'YES' : 'NO'} | ${Math.round(t.baseline_prob*100)}% | ${Math.round(t.challenger_prob*100)}% |`
+              ).join('\n');
+            }
             
             const body = `## Stage 1: Smoke Test Results
             
@@ -143,9 +166,7 @@ jobs:
             
             | Author | Target | Actual | Hit | Current | Challenger |
             |---|---|---|---|---|---|
-            ${results.per_tweet.map(t => 
-              `| @${t.author} | ${t.target.toLocaleString()} | ${t.actual_impressions.toLocaleString()} | ${t.hit ? 'YES' : 'NO'} | ${Math.round(t.baseline_prob*100)}% | ${Math.round(t.challenger_prob*100)}% |`
-            ).join('\n')}
+            ${perTweetRows}
             
             </details>
             
@@ -159,7 +180,7 @@ jobs:
             });
       
       - name: Auto-close on regression
-        if: steps.eval.outputs.DELTA < -0.05
+        if: steps.eval.outputs.DELTA != '' && steps.eval.outputs.DELTA < -0.05
         uses: actions/github-script@v7
         with:
           script: |
