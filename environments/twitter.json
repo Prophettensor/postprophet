@@ -29,7 +29,7 @@
     {
       "name": "bookmark_worthiness",
       "category": "Algorithm signals",
-      "description": "Is it reference-worthy? Frameworks, data points, lists, how-tos, actionable takeaways = high (bookmarks = 10-12x a like). Opinion-only or news reactions = low."
+      "description": "Is it worth saving for later? Frameworks, data tables, step-by-step guides, cheat sheets, comparison lists, actionable takeaways = high (bookmarks are 10-12x a like in algorithm weight). The algorithm uses bookmarks as a strong quality signal \u2014 people only bookmark content they plan to reference again. Opinion-only, hot takes, news reactions, or announcements without substance = low. If a reader would screenshot this tweet to reference later, score high."
     },
     {
       "name": "structure_readability",
@@ -48,11 +48,12 @@
     }
   ],
   "probability_guide": [
-    "All scores 7+ (especially specificity): 70-85%",
-    "Two scores 7+ (including specificity), rest decent: 45-60%",
-    "One score 7+ (specificity), rest weak: 25-40%",
-    "All scores below 6: 5-15%",
-    "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
+    "MANDATORY: If all scores are 7+ (especially specificity and bookmark_worthiness), output 0.70-0.85. Do not output below 0.60.",
+    "MANDATORY: If two scores are 7+ (including specificity) and rest are decent (5+), output 0.45-0.60.",
+    "MANDATORY: If one score is 7+ (specificity) and rest are weak, output 0.25-0.40.",
+    "MANDATORY: If all scores are below 6, output 0.05-0.15.",
+    "HARD CAP: If link_penalty_risk is below 5, cap probability at 0.25 regardless of other scores.",
+    "BONUS: If bookmark_worthiness is 8+, add 0.05 to probability (bookmarks are a strong quality signal)."
   ],
   "extra_considerations": [
     "Author's follower count AND engagement baseline",
