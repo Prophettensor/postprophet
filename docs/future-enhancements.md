@@ -22,22 +22,38 @@
 
 ## Account Discovery from Tracked Replies
 
-**Idea:** Automatically suggest new accounts to track based on who replies to and quotes tweets from existing tracked accounts.
+**Idea:** Automatically suggest new accounts to track based on who gets quoted by existing tracked accounts.
 
-**Why it matters:** Manual curation doesn't scale. But pure keyword search pulls in too much noise. Tracked replies are the highest-signal discovery method — if an account replies to multiple tracked accounts, they're clearly in the ecosystem.
+**Why it matters:** Manual curation doesn't scale. But pure keyword search pulls in too much noise. Tracked quotes are the highest-signal discovery method — if an account quotes someone, they're putting that person on their timeline. That's a trust signal.
 
-**How it would work:**
-- Scan recent tracked replies/quotes (we already fetch these)
-- Count how many different tracked accounts each replier engages with
-- Suggest accounts that engage with 3+ tracked accounts and have >500 followers
-- Command: `python postprophet.py suggest` — prints a list of candidate accounts with engagement stats
-- User reviews and approves: `python postprophet.py add @suggested_handle`
-- Still curated (human approves) but discovery is automated
+**Status: BUILT.** `suggest` command works. Quoted accounts auto-logged during track/backfill. Manual review + add via `python postprophet.py add @handle`.
 
-**Why not now:**
-- 40 accounts is plenty for the current eval
-- Need more resolved predictions before expanding the ecosystem matters
-- Diluting the ecosystem with noise would hurt the Brier score
+**Next step: automate the full lifecycle:**
 
-**Trigger for building:** When expanding beyond the initial Bittensor niche, or when the 40-account ecosystem feels too small for accurate predictions.
+### Auto-add (with cost guard)
+- Cron runs `suggest` weekly
+- Accounts quoted 3+ times by tracked accounts = auto-add candidates
+- Before adding: fetch their recent tweets to verify they post at least 1x/week
+- If they don't tweet enough, skip — not worth ongoing track cost
+- Hard cap: 100 accounts max (cost ceiling)
+
+### Auto-prune (dead accounts)
+- Track last-tweet-date per account during each track run
+- 14 days no tweets → flag in report
+- 30 days no tweets → auto-remove from accounts.txt (log to data repo for audit)
+- Dead accounts waste ~$0.06 per track run each
+
+### Unuseful data detection
+- Flag accounts where Brier is significantly worse than overall average
+- Flag accounts with 0 variance (always hit or always miss)
+- Flag accounts with no engagement (no quotes, no replies from other tracked accounts)
+- Don't auto-remove these — just flag for manual review
+
+### Cost budget
+- Track run cost: ~$0.01 per account (user lookup + 20 tweet reads)
+- 100 accounts = ~$1.00 per cold track run, ~$0.21 warm
+- Daily cron = ~$30/month max
+- Adding accounts increases cost linearly — pruning keeps it bounded
+
+**Trigger for building:** After 1 week of cron data showing which accounts actually produce predictions.
 
