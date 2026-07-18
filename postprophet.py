@@ -1309,11 +1309,11 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     has_ext = context.get("has_external_url", False)
     is_quote = context.get("is_quote_tweet", False)
     if is_quote:
-        link_context_str = "  Quote tweet (link is X-internal, NOT penalized by algorithm)"
+        link_context_str = "  Quote tweet (X-internal link, no algorithm penalty)"
     elif has_ext:
-        link_context_str = "  External URL present (penalized 30-94% by algorithm)"
+        link_context_str = "  External URL present (algorithm penalizes 30-94%)"
     elif has_url:
-        link_context_str = "  URL present in text (treat as external unless clearly X-internal)"
+        link_context_str = "  URL present (likely X-internal, no penalty unless external)"
     else:
         link_context_str = "  No links"
 
