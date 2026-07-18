@@ -9,7 +9,7 @@
     {
       "name": "hook_strength",
       "category": "Content quality",
-      "description": "Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets. A bold claim, surprising data, or personal announcement = high. Vague statements = low."
+      "description": "Does the first line make you stop scrolling? The hook is the first 1-2 sentences. High: a specific number (\"Brier 0.21 on 600 predictions\"), a bold claim (\"This subnet is undervalued\"), a personal revelation (\"We just shipped X\"), a contrarian take (\"Everyone is wrong about Y\"). Low: vague announcements (\"Excited to share\"), questions that answer themselves, or starting with context instead of the point. The hook must work WITHOUT reading the rest of the tweet. If the first line alone makes you want to read more, score 7+. If you need the second line to care, score below 5."
     },
     {
       "name": "specificity",
