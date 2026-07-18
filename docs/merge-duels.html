@@ -21,19 +21,48 @@ h1{font-size:1.5em;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
 .duel-status.loss{background:rgba(248,113,113,0.15);color:var(--red)}
 .duel-status.tie{background:rgba(251,191,36,0.15);color:var(--amber)}
 .hypothesis{font-size:.85em;color:var(--text-secondary);padding:12px;background:var(--bg-elevated);border-radius:8px;margin-bottom:16px;border-left:3px solid var(--violet)}
-.vs-container{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:center}
+.vs-container{display:flex;flex-direction:column;gap:8px}
 .vs-side{text-align:center;padding:16px;border-radius:8px}
 .vs-side.current{background:rgba(34,211,238,0.05);border:1px solid rgba(34,211,238,0.15)}
 .vs-side.challenger{background:rgba(167,139,250,0.05);border:1px solid rgba(167,139,250,0.15)}
-.vs-divider{font-size:1.5em;font-weight:700;color:var(--text-tertiary);padding:0 12px}
+.vs-vs{display:none}
 .vs-label{font-size:.7em;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
 .vs-label.current{color:var(--cyan)}
 .vs-label.challenger{color:var(--violet)}
-.vs-version{font-size:.7em;color:var(--text-tertiary);margin-bottom:12px;font-family:monospace}
-.vs-brier{font-size:2em;font-weight:700;margin-bottom:4px}
+.vs-version{font-size:.7em;color:var(--text-tertiary);margin-bottom:8px;font-family:monospace}
+.vs-brier{font-size:1.8em;font-weight:700;margin-bottom:2px}
 .vs-brier.win{color:var(--green)}
 .vs-brier.loss{color:var(--red)}
-.vs-sub{font-size:.7em;color:var(--text-secondary)}
+.vs-sub{font-size:.65em;color:var(--text-secondary)}
+
+/* Per-tweet breakdown table */
+.tweet-table{margin-top:16px;width:100%;border-collapse:collapse;font-size:.72em}
+.tweet-table th{text-align:left;padding:6px 8px;color:var(--text-tertiary);font-weight:600;border-bottom:1px solid var(--border);font-size:.65em;text-transform:uppercase;letter-spacing:.05em}
+.tweet-table td{padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-secondary)}
+.tweet-table .mono{font-family:monospace}
+.tweet-table .correct{color:var(--green)}
+.tweet-table .wrong{color:var(--red)}
+.tweet-table .author{color:var(--text)}
+.tweet-cols{display:flex;gap:8px;align-items:center}
+.tweet-cols .col{flex:1;text-align:center}
+.tweet-cols .col-lbl{font-size:.6em;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+
+/* Config diff */
+.config-diff{margin-top:16px;padding:12px;background:var(--bg-elevated);border-radius:8px;border:1px solid var(--border)}
+.config-diff-title{font-size:.7em;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.config-diff-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.7em;margin-bottom:6px}
+.config-diff-cell{padding:6px 8px;border-radius:4px}
+.config-diff-cell.old{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.15)}
+.config-diff-cell.new{background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.15)}
+.config-diff-lbl{font-size:.6em;color:var(--text-tertiary);text-transform:uppercase;margin-bottom:2px}
+
+/* Meta info */
+.duel-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;padding:12px;background:var(--bg-elevated);border-radius:8px;font-size:.72em;color:var(--text-secondary)}
+.duel-meta-item{display:flex;flex-direction:column;gap:2px}
+.duel-meta-label{font-size:.6em;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary)}
+.duel-meta-value{font-family:monospace;font-weight:600;color:var(--text)}
+
+@media(min-width:640px){.vs-container{flex-direction:row;gap:0}.vs-vs{display:block;font-size:1.5em;font-weight:700;color:var(--text-tertiary);padding:0 12px;align-self:center}}
 .delta-bar{margin-top:16px;display:flex;align-items:center;gap:12px}
 .delta-label{font-size:.75em;color:var(--text-secondary);white-space:nowrap}
 .delta-track{flex:1;height:8px;background:var(--bg-elevated);border-radius:4px;position:relative;overflow:hidden}
@@ -91,6 +120,28 @@ const duels = [
     current_brier: 0.3157,
     challenger_brier: 0.3012,
     delta: 0.0145,
+    model: "gpt-4o-mini",
+    eval_size: 50,
+    cost_usd: 0.024,
+    duration_min: 6.7,
+    config_diff: [
+      { field: "specificity description", old: "Does it say something concrete? Named products, numbers, events = high. General statements about 'innovation' or 'decentralization' = low.", new: "Does it say something concrete? Specific numbers, named projects, and concrete data points are crucial. High scores for precise details and examples; general statements about 'innovation' or 'decentralization' = low." },
+      { field: "probability guide 7+", old: "All scores 7+: 65-80%", new: "All scores 7+ (especially specificity): 70-85%" },
+      { field: "probability guide 2x7+", old: "Two scores 7+, rest decent: 40-55%", new: "Two scores 7+ (including specificity), rest decent: 45-60%" },
+      { field: "probability guide 1x7+", old: "One score 7+, rest weak: 20-35%", new: "One score 7+ (specificity), rest weak: 25-40%" },
+    ],
+    per_tweet: [
+      { author: "zipcodenetwork", target: 1290, actual: 68, hit: false, cur_prob: 0.10, chal_prob: 0.10 },
+      { author: "zipcodenetwork", target: 1290, actual: 184, hit: false, cur_prob: 0.15, chal_prob: 0.15 },
+      { author: "zipcodenetwork", target: 1290, actual: 1815, hit: true, cur_prob: 0.15, chal_prob: 0.15 },
+      { author: "zeussubnet", target: 3288, actual: 74, hit: false, cur_prob: 0.15, chal_prob: 0.15 },
+      { author: "yanez__ai", target: 4573, actual: 218, hit: false, cur_prob: 0.15, chal_prob: 0.15 },
+      { author: "yanez__ai", target: 4573, actual: 4131, hit: false, cur_prob: 0.20, chal_prob: 0.25 },
+      { author: "webuildscore", target: 10765, actual: 267, hit: false, cur_prob: 0.10, chal_prob: 0.10 },
+      { author: "vocence_bt", target: 3663, actual: 73, hit: false, cur_prob: 0.10, chal_prob: 0.10 },
+      { author: "vidaio_", target: 478, actual: 2891, hit: true, cur_prob: 0.15, chal_prob: 0.15 },
+      { author: "trajrl", target: 4899, actual: 1201, hit: false, cur_prob: 0.25, chal_prob: 0.25 },
+    ],
   },
 ];
 
@@ -100,7 +151,6 @@ function renderDuel(d) {
   const delta = d.delta;
   const deltaClass = delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'tie';
   const deltaText = delta != null ? (delta > 0 ? `+${delta.toFixed(4)}` : delta.toFixed(4)) : '—';
-  
   const barWidth = delta != null ? Math.min(Math.abs(delta) * 200, 50) : 0;
   
   let resultText = '';
@@ -114,25 +164,59 @@ function renderDuel(d) {
   const chalBrierClass = d.current_brier != null && d.challenger_brier != null
     ? (d.challenger_brier < d.current_brier ? 'win' : 'loss') : '';
 
+  // Config diff
+  let configDiffHtml = '';
+  if (d.config_diff && d.config_diff.length) {
+    configDiffHtml = '<div class="config-diff"><div class="config-diff-title">Config changes</div>';
+    d.config_diff.forEach(c => {
+      configDiffHtml += `<div class="config-diff-row"><div class="config-diff-cell old"><div class="config-diff-lbl">Old — ${escapeHtml(c.field)}</div>${escapeHtml(c.old)}</div><div class="config-diff-cell new"><div class="config-diff-lbl">New — ${escapeHtml(c.field)}</div>${escapeHtml(c.new)}</div></div>`;
+    });
+    configDiffHtml += '</div>';
+  }
+
+  // Per-tweet breakdown
+  let tweetTableHtml = '';
+  if (d.per_tweet && d.per_tweet.length) {
+    tweetTableHtml = '<div style="margin-top:16px"><div style="font-size:.7em;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Per-tweet breakdown (sample)</div>';
+    tweetTableHtml += '<table class="tweet-table"><thead><tr><th>@</th><th>Target</th><th>Actual</th><th>Hit</th><th>Current</th><th>Challenger</th></tr></thead><tbody>';
+    d.per_tweet.forEach(t => {
+      const curCorrect = (t.cur_prob >= 0.5) === t.hit;
+      const chalCorrect = (t.chal_prob >= 0.5) === t.hit;
+      tweetTableHtml += `<tr><td class="author">@${t.author}</td><td class="mono">${t.target.toLocaleString()}</td><td class="mono">${t.actual.toLocaleString()}</td><td>${t.hit ? '<span class="correct">YES</span>' : '<span class="wrong">NO</span>'}</td><td class="mono ${curCorrect ? 'correct' : 'wrong'}">${Math.round(t.cur_prob*100)}%</td><td class="mono ${chalCorrect ? 'correct' : 'wrong'}">${Math.round(t.chal_prob*100)}%</td></tr>`;
+    });
+    tweetTableHtml += '</tbody></table></div>';
+  }
+
+  // Meta info
+  let metaHtml = '';
+  if (d.model || d.eval_size || d.cost_usd || d.duration_min) {
+    metaHtml = '<div class="duel-meta">';
+    if (d.model) metaHtml += `<div class="duel-meta-item"><span class="duel-meta-label">Model</span><span class="duel-meta-value">${d.model}</span></div>`;
+    if (d.eval_size) metaHtml += `<div class="duel-meta-item"><span class="duel-meta-label">Eval set</span><span class="duel-meta-value">${d.eval_size} tweets</span></div>`;
+    if (d.duration_min) metaHtml += `<div class="duel-meta-item"><span class="duel-meta-label">Duration</span><span class="duel-meta-value">${d.duration_min} min</span></div>`;
+    if (d.cost_usd) metaHtml += `<div class="duel-meta-item"><span class="duel-meta-label">Cost</span><span class="duel-meta-value">$${d.cost_usd.toFixed(3)}</span></div>`;
+    metaHtml += '</div>';
+  }
+
   return `
     <div class="duel-card">
       <div class="duel-header">
         <span class="duel-title">Duel #${d.id}</span>
         <span class="duel-status ${d.status}">${d.status.toUpperCase()}</span>
       </div>
-      <div class="hypothesis">${d.hypothesis}</div>
+      <div class="hypothesis">${escapeHtml(d.hypothesis)}</div>
       <div class="vs-container">
         <div class="vs-side current">
           <div class="vs-label current">Current</div>
           <div class="vs-version">${d.current.version} (${d.current.hash})</div>
-          <div class="vs-brier ${curBrierClass}">${fmt(d.current_brier)}</div>
+          <div class="vs-brier ${curBrierClass}">${d.current_brier != null ? d.current_brier.toFixed(4) : '—'}</div>
           <div class="vs-sub">Brier score</div>
         </div>
-        <div class="vs-divider">VS</div>
+        <div class="vs-vs">VS</div>
         <div class="vs-side challenger">
           <div class="vs-label challenger">Challenger</div>
           <div class="vs-version">${d.challenger.version} (${d.challenger.hash})</div>
-          <div class="vs-brier ${chalBrierClass}">${fmt(d.challenger_brier)}</div>
+          <div class="vs-brier ${chalBrierClass}">${d.challenger_brier != null ? d.challenger_brier.toFixed(4) : '—'}</div>
           <div class="vs-sub">Brier score</div>
         </div>
       </div>
@@ -147,7 +231,10 @@ function renderDuel(d) {
       </div>
       ` : ''}
       ${resultText}
-      <div class="per-tweet">50 tweets evaluated — lower Brier = better calibration</div>
+      ${metaHtml}
+      ${configDiffHtml}
+      ${tweetTableHtml}
+      <div class="per-tweet">${d.eval_size || 50} tweets evaluated — lower Brier = better calibration</div>
     </div>
   `;
 }
