@@ -4,10 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PostProphet — Merge Duels</title>
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme:dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme:light)">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:#0a0a0a; --bg-card:#141414; --bg-elevated:#1c1c1c;
@@ -24,8 +26,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,10,10,0.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
 nav .inner{max-width:680px;margin:0 auto;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
 nav a.logo{text-decoration:none;color:var(--text);font-weight:800;font-size:1.05em;letter-spacing:-.02em}
-nav .links{display:flex;gap:20px;align-items:center}
-nav .links a{color:var(--text-secondary);text-decoration:none;font-size:.9em;font-weight:500}
+nav .links{display:flex;gap:12px;align-items:center}
+nav .links a{color:var(--text-secondary);text-decoration:none;font-size:.88em;font-weight:500;white-space:nowrap;padding:8px 0;min-height:44px;display:flex;align-items:center}
 nav .links a:hover{color:var(--text)}
 
 .container{max-width:680px;margin:0 auto;padding:100px 20px 40px}
@@ -108,9 +110,13 @@ nav .links a:hover{color:var(--text)}
 @media(min-width:640px){
   .vs-container{flex-direction:row;gap:0}
   .vs-vs{display:block;font-size:1.4em;font-weight:700;color:var(--text-tertiary);padding:0 16px;align-self:center}
+  .config-diff-row{grid-template-columns:1fr 1fr}
 }
-@media(max-width:480px){
+@media(max-width:639px){
   .config-diff-row{grid-template-columns:1fr}
+  .tweet-table{font-size:.68em}
+  .tweet-table th,.tweet-table td{padding:6px 4px}
+  .container{padding:90px 12px 40px}
 }
 </style>
 </head>
