@@ -1767,9 +1767,11 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             if t.get("in_reply_to_user_id") and str(t.get("in_reply_to_user_id")) == str(user_id)
         ]
         # Also exclude replies to OTHER accounts (not self-replies/thread continuations)
+        # Check both in_reply_to_user_id AND text starting with @username
         originals = [
             t for t in originals
             if not t.get("in_reply_to_user_id")  # No replies to others
+            and not re.match(r'^@\w+', t.get("text", "").strip())  # No text-based replies
         ]
         
         # Baseline from first 10 originals (exclude self-replies — low impressions)

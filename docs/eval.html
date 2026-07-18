@@ -48,22 +48,25 @@ nav .links a:hover{color:var(--text)}
 .section-title{font-size:1.2em;font-weight:700;margin-bottom:8px;letter-spacing:-.02em}
 .section-sub{color:var(--text-secondary);font-size:.88em;margin-bottom:16px}
 
-.chart-container{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
-.chart-container canvas{max-height:260px}
+.chart-container{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:24px;position:relative}
+.chart-container canvas{max-height:200px;width:100% !important}
 
 /* Tweet card */
 .tweet-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;margin-bottom:16px;overflow:hidden}
-.tweet-header{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 0}
-.tweet-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#4338ca,#818cf8);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;color:#fff;flex-shrink:0}
+.tweet-header{display:flex;align-items:flex-start;gap:0;padding:14px 16px 0}
 .tweet-name-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .tweet-name{font-weight:700;font-size:.95em;color:var(--text)}
 .tweet-handle{color:var(--text-tertiary);font-size:.9em}
-.tweet-verified{color:var(--accent);font-size:.8em}
 .tweet-time{color:var(--text-tertiary);font-size:.85em;margin-left:auto;white-space:nowrap}
-.tweet-body{padding:8px 16px 12px;font-size:.95em;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.tweet-body{padding:4px 16px 12px;font-size:.95em;line-height:1.5;word-break:break-word;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;position:relative}
+.tweet-body.expanded{-webkit-line-clamp:unset;overflow:visible}
+.tweet-body::after{content:'...';position:absolute;bottom:0;right:16px;background:var(--bg-card);padding-left:4px;display:none}
+.tweet-body:not(.expanded)::after{display:block}
+.tweet-body:not(.expanded):has(+ .tweet-body)::after{display:none}
 .tweet-quote-box{border:1px solid var(--border);border-radius:12px;padding:12px;margin:8px 0;background:var(--bg-elevated)}
 .tweet-quote-handle{color:var(--text-tertiary);font-size:.85em;font-weight:600;margin-bottom:4px}
-.tweet-quote-text{font-size:.9em;color:var(--text-secondary);line-height:1.4;word-break:break-word;white-space:pre-wrap}
+.tweet-quote-text{font-size:.9em;color:var(--text-secondary);line-height:1.4;word-break:break-word;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tweet-quote-text.expanded{-webkit-line-clamp:unset;overflow:visible}
 .tweet-thread-marker{color:var(--text-tertiary);font-size:.8em;font-weight:600;margin:8px 0 4px}
 .tweet-metrics-bar{display:flex;gap:20px;padding:0 16px 12px;font-size:.82em;color:var(--text-tertiary)}
 .tweet-metric{display:flex;align-items:center;gap:4px}
@@ -380,11 +383,8 @@ fetch('dashboard-data.json')
     else if (p.has_external_url) meta.push('external link');
     else if (p.has_url) meta.push('has URL');
 
-    const initials = p.author.substring(0, 2).toUpperCase();
-
     card.innerHTML = `
       <div class="tweet-header">
-        <div class="tweet-avatar">${initials}</div>
         <div style="flex:1;min-width:0">
           <div class="tweet-name-row">
             <span class="tweet-name">@${escapeHtml(p.author)}</span>
@@ -415,6 +415,14 @@ fetch('dashboard-data.json')
         </div>
       </div>
     `;
+
+    // Make tweet body expandable on tap
+    const bodies = card.querySelectorAll('.tweet-body');
+    bodies.forEach(body => {
+      body.addEventListener('click', function() {
+        this.classList.toggle('expanded');
+      });
+    });
 
     list.appendChild(card);
   });
