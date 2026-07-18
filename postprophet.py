@@ -1599,16 +1599,18 @@ def build_thread_context_from_data(tweet: dict, replies: list[dict]) -> str:
     
     Uses reply data from the same API batch — no extra search call needed.
     """
-    parts = [tweet.get("text", "")]
+    def clean_text(text):
+        return re.sub(r'https?://t\.co/\S+', '', text).strip()
+    
+    parts = [clean_text(tweet.get("text", ""))]
     for reply in replies:
-        parts.append(reply.get("text", ""))
+        parts.append(clean_text(reply.get("text", "")))
     if len(parts) == 1:
         return parts[0]  # No replies, standalone
-    thread_text = "[THREAD START]\n"
+    thread_text = f"[THREAD — {len(parts)} tweets]\n"
     for i, part in enumerate(parts):
-        thread_text += f"{i+1}/{len(parts)}: {part}\n"
-    thread_text += "[THREAD END]"
-    return thread_text
+        thread_text += f"{i+1}. {part}\n"
+    return thread_text.rstrip()
 
 
 def build_quote_context(tweet: dict) -> str:
@@ -1622,22 +1624,33 @@ def build_quote_context(tweet: dict) -> str:
     if not quoted:
         return tweet.get("text", "")
     
-    quoted_text = quoted.get("text", "")
+    # Clean text — strip t.co URLs for readability
+    def clean_text(text):
+        return re.sub(r'https?://t\.co/\S+', '', text).strip()
+    
+    quoted_text = clean_text(quoted.get("text", ""))
     quoted_author = quoted.get("_author", {})
     quoted_username = quoted_author.get("username", "unknown")
     quoted_followers = quoted_author.get("public_metrics", {}).get("followers_count", 0)
     quoted_metrics = quoted.get("public_metrics", {})
     quoted_impressions = quoted_metrics.get("impression_count", 0)
     
-    quote_text = tweet.get("text", "")
+    quote_text = clean_text(tweet.get("text", ""))
+    
+    # Check if self-quote (same author quoting themselves)
+    tweet_author = tweet.get("author_id", "")
+    quoted_author_id = quoted.get("author_id", "")
+    is_self_quote = tweet_author and quoted_author_id and str(tweet_author) == str(quoted_author_id)
+    
+    if is_self_quote:
+        prefix = f"[SELF-QUOTE — quoting their own tweet ({quoted_impressions:,} impressions)]"
+    else:
+        prefix = f"[Quoting @{quoted_username} ({quoted_followers:,} followers, {quoted_impressions:,} impressions)]"
     
     return (
-        f"[ORIGINAL TWEET by @{quoted_username} ({quoted_followers:,} followers, {quoted_impressions:,} impressions)]\n"
-        f"{quoted_text}\n"
-        f"[END ORIGINAL]\n\n"
-        f"[QUOTE TWEET]\n"
-        f"{quote_text}\n"
-        f"[END QUOTE]"
+        f"{prefix}\n"
+        f"Original: {quoted_text}\n"
+        f"Quote: {quote_text}"
     )
 
 
