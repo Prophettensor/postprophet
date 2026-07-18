@@ -48,11 +48,11 @@
     }
   ],
   "probability_guide": [
-    "All scores 7+ (especially specificity): 70-85%",
-    "Two scores 7+ (including specificity), rest decent: 45-60%",
-    "One score 7+ (specificity), rest weak: 25-40%",
-    "All scores below 6: 5-15%",
-    "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
+    "MANDATORY: If all scores are 7+ (especially specificity), output 70-85%. Do not output below 60%.",
+    "MANDATORY: If two scores are 7+ (including specificity) and rest are decent (5+), output 45-60%.",
+    "MANDATORY: If one score is 7+ (specificity) and rest are weak, output 25-40%.",
+    "MANDATORY: If all scores are below 6, output 5-15%.",
+    "HARD CAP: If link_penalty_risk is below 5, cap probability at 25% regardless of other scores."
   ],
   "extra_considerations": [
     "Author's follower count AND engagement baseline",

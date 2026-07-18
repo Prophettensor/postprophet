@@ -986,7 +986,7 @@ def build_prompt(env: dict) -> str:
         "\n" \
         "A " + content_type + " scoring below 6 on ANY dimension is unlikely to hit the target. Be honest — most " + content_type + "s are mediocre.\n" \
         "\n" \
-        "STEP 2 — Convert scores to probability. As a rough guide:\n" + guide_str + "\n" \
+        "STEP 2 — Convert scores to probability using this MANDATORY mapping (do not deviate):\\n" + guide_str + "\\n" \
         "\n" \
         "Also consider:\n" + considerations_str + "\n" \
         "\n" \
