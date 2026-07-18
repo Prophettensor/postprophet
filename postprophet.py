@@ -92,10 +92,10 @@ def get_author_latest_tweet(author_id, max_results=10):
 def pick_fresh_tweet(tweets, max_age_hours=12, author_id=None):
     """From a list of tweets, return the first one that's:
     1. Under max_age_hours old
-    2. Not a self-reply (thread continuation)
-    3. Not a quote tweet (can't see quoted content yet)
-    4. Not a thread reply (need full thread context)
-    5. Not link-only with X-internal URL (can't evaluate)
+    2. Not a self-reply (thread continuation — only predict on thread starters)
+    3. Not link-only with X-internal URL (can't evaluate)
+    Quote tweets and thread starters are now included — enrich_tweet_text
+    handles fetching the full context.
     Returns None if none qualify."""
     if not tweets:
         return None
@@ -113,18 +113,9 @@ def pick_fresh_tweet(tweets, max_age_hours=12, author_id=None):
         except Exception:
             continue
 
-        # Check self-reply (thread continuation)
+        # Check self-reply (thread continuation — skip, predict on starter)
         in_reply_to = tweet.get("in_reply_to_user_id")
         if in_reply_to and author_id and str(in_reply_to) == str(author_id):
-            continue
-
-        # Skip quote tweets — can't see quoted content yet (future feature)
-        refs = tweet.get("referenced_tweets", [])
-        if any(r.get("type") == "quoted" for r in refs):
-            continue
-
-        # Skip thread replies — need full thread context (future feature)
-        if any(r.get("type") == "replied_to" for r in refs):
             continue
 
         # Skip link-only tweets with X-internal URLs
@@ -1503,27 +1494,172 @@ def format_calibration_for_prompt(cal: dict) -> str:
     return "\n".join(lines)
 
 
-def enrich_tweet_text(tweet: dict) -> str:
-    """Enrich tweet text by resolving t.co URLs and fetching linked content.
+def fetch_quoted_tweet(tweet: dict) -> dict | None:
+    """Fetch the content of a quoted tweet.
     
-    For bare links to external articles, fetches the page and extracts
-    readable text (headings, paragraphs) so the model can evaluate the
-    content. For X-internal links (quote tweets, media), keeps original.
+    Uses the expansions parameter to get the quoted tweet in the same
+    API response. If we already have the tweet data (from includes),
+    use that. Otherwise, do a single tweet lookup.
+    """
+    refs = tweet.get("referenced_tweets", [])
+    quoted_id = None
+    for r in refs:
+        if r.get("type") == "quoted":
+            quoted_id = r.get("id")
+            break
+    
+    if not quoted_id:
+        return None
+    
+    # Single tweet lookup
+    url = f"https://api.twitter.com/2/tweets"
+    params = {
+        "ids": quoted_id,
+        "tweet.fields": "public_metrics,created_at,author_id,entities",
+        "expansions": "author_id",
+        "user.fields": "username,public_metrics",
+    }
+    try:
+        resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        tweets = data.get("data", [])
+        if not tweets:
+            return None
+        quoted = tweets[0]
+        # Get author info
+        users = data.get("includes", {}).get("users", [])
+        if users:
+            quoted["_author"] = users[0]
+        return quoted
+    except Exception:
+        return None
+
+
+def fetch_thread_replies(tweet: dict, author_id: str) -> list[dict]:
+    """Fetch thread replies from the same author.
+    
+    Searches for tweets from the same author that reply to this tweet
+    or to subsequent replies in the thread. Returns ordered list of
+    replies (oldest first, after the parent).
+    """
+    tweet_id = tweet.get("id", "")
+    if not tweet_id:
+        return []
+    
+    # Search for replies from this author to this tweet
+    url = "https://api.twitter.com/2/tweets/search/recent"
+    query = f"from:{author_id} in_reply_to:{tweet_id}"
+    params = {
+        "query": query,
+        "max_results": 10,
+        "tweet.fields": "public_metrics,created_at,in_reply_to_user_id,referenced_tweets",
+    }
+    
+    try:
+        resp = httpx.get(url, headers=x_headers(), params=params, timeout=20)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+        replies = data.get("data", [])
+        # Sort by created_at (oldest first)
+        replies.sort(key=lambda t: t.get("created_at", ""))
+        return replies
+    except Exception:
+        return []
+
+
+def build_thread_context(tweet: dict, author_id: str) -> str:
+    """Build full thread text from parent + replies.
+    
+    Returns the complete thread as one text block, preserving order.
+    The model sees the full narrative, not just the first tweet.
+    """
+    parts = [tweet.get("text", "")]
+    
+    replies = fetch_thread_replies(tweet, author_id)
+    for reply in replies:
+        parts.append(reply.get("text", ""))
+    
+    if len(parts) == 1:
+        return parts[0]  # No replies, standalone tweet
+    
+    # Mark each part
+    thread_text = "[THREAD START]\n"
+    for i, part in enumerate(parts):
+        thread_text += f"{i+1}/{len(parts)}: {part}\n"
+    thread_text += "[THREAD END]"
+    return thread_text
+
+
+def build_quote_context(tweet: dict) -> str:
+    """Build context for a quote tweet — shows both the quote and the original.
+    
+    Returns formatted text with the original tweet's content + author,
+    then the quote tweet's text. The model can evaluate how well the
+    quote adds value to the original.
+    """
+    quoted = fetch_quoted_tweet(tweet)
+    if not quoted:
+        return tweet.get("text", "")
+    
+    quoted_text = quoted.get("text", "")
+    quoted_author = quoted.get("_author", {})
+    quoted_username = quoted_author.get("username", "unknown")
+    quoted_followers = quoted_author.get("public_metrics", {}).get("followers_count", 0)
+    quoted_metrics = quoted.get("public_metrics", {})
+    quoted_impressions = quoted_metrics.get("impression_count", 0)
+    
+    quote_text = tweet.get("text", "")
+    
+    return (
+        f"[ORIGINAL TWEET by @{quoted_username} ({quoted_followers:,} followers, {quoted_impressions:,} impressions)]\n"
+        f"{quoted_text}\n"
+        f"[END ORIGINAL]\n\n"
+        f"[QUOTE TWEET]\n"
+        f"{quote_text}\n"
+        f"[END QUOTE]"
+    )
+
+
+
+def enrich_tweet_text(tweet: dict, author_id: str = None) -> str:
+    """Enrich tweet text with full context.
+    
+    - Quote tweets: fetch original tweet, show both
+    - Threads: fetch replies, stitch together
+    - Link-only with X-internal URL: skip (return empty)
+    - Standalone: return text as-is
     """
     text = tweet.get("text", "")
-    entities = tweet.get("entities", {})
-    urls = entities.get("urls", [])
+    refs = tweet.get("referenced_tweets", [])
     
-    if not urls:
-        return text
+    # Quote tweet — fetch and include original
+    if any(r.get("type") == "quoted" for r in refs):
+        return build_quote_context(tweet)
     
-    # Check if text is basically just a URL (link-only tweet)
+    # Thread starter — fetch replies and stitch
+    if author_id and tweet.get("in_reply_to_user_id") and str(tweet["in_reply_to_user_id"]) == str(author_id):
+        return ""  # This is a thread reply, not the starter — skip
+    
+    # Check if this tweet starts a thread (has replies from same author)
+    if author_id:
+        replies = fetch_thread_replies(tweet, author_id)
+        if replies:
+            return build_thread_context(tweet, author_id)
+    
+    # Check if link-only with X-internal URL
     clean = re.sub(r'https?://\S+', '', text).strip()
-    is_link_only = len(clean) < 15
-    
-    # Link-only tweet — skip entirely (can't evaluate without the content)
-    if is_link_only:
-        return ""  # Empty signals "skip this tweet"
+    if len(clean) < 15:
+        urls = tweet.get("entities", {}).get("urls", [])
+        if urls and all(
+            any(d in u.get("expanded_url", "") for d in ["x.com", "twitter.com"])
+            for u in urls
+        ):
+            return ""  # Skip X-internal link-only
+        if not urls:
+            return ""  # Skip emoji-only or empty
     
     return text
 
@@ -1618,39 +1754,16 @@ def backfill_predictions(max_tweets_per_account: int = 20):
             if not tweet.get("text", "").strip():
                 continue
             
-            # Skip quote tweets — can't see quoted content yet (future feature)
-            refs = tweet.get("referenced_tweets", [])
-            if any(r.get("type") == "quoted" for r in refs):
-                continue
-            
-            # Skip tweets that are replies in threads — need full thread context (future feature)
-            if any(r.get("type") == "replied_to" for r in refs):
-                continue
-    
-            # Skip link-only tweets that resolve to X-internal URLs
-            # (quote tweets, self-quotes, X articles) — we can't see the content
-            import re as _re_skip
-            _clean = _re_skip.sub(r'https?://\S+', '', tweet.get("text", "")).strip()
-            if len(_clean) < 15:
-                _entities = tweet.get("entities", {})
-                _urls = _entities.get("urls", [])
-                _all_x_links = all(
-                    any(d in u.get("expanded_url", "") for d in ["x.com", "twitter.com"])
-                    for u in _urls
-                ) if _urls else True
-                if _all_x_links:
-                    continue  # Can't evaluate — skip X-internal link-only tweets
+            # Enrich tweet text with full context (threads, quotes, etc.)
+            enriched_text = enrich_tweet_text(tweet, author_id=user_id)
+            if not enriched_text:
+                continue  # Link-only, emoji-only, or thread reply — skip
             
             # This tweet is >24h old — impressions are final
             actual_impressions = tweet.get("public_metrics", {}).get("impression_count", 0)
             
             # Build context (same as track mode, but NO engagement leakage)
             media_info = analyze_media(tweet) if tweet.get("_media") else {"has_media": False, "media_types": [], "descriptions": []}
-            
-            # Enrich tweet text (resolves link-only tweets — returns empty if should skip)
-            enriched_text = enrich_tweet_text(tweet)
-            if not enriched_text:
-                continue  # Link-only tweet we can't evaluate
             
             # Check if tweet is >24h old
             created_at = tweet.get("created_at", "")
