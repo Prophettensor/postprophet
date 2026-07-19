@@ -25,22 +25,34 @@ COEFS = {
 }
 INTERCEPT = -2.2056
 
+# Interaction coefficients (initial estimate, to be calibrated)
+INTERACTION_COEFS = {
+    "spec_x_emot": 0.5,   # specificity * emotional_trigger
+    "spec_x_clar": 0.3,   # specificity * clarity_density
+}
+
 DIMS = list(COEFS.keys())
 
 def predict_with_feedback(scores: dict) -> dict:
-    """Compute probability from pre-scored dimensions.
+    """Compute probability from pre-scored dimensions + interaction terms.
     
-    Args:
-        scores: dict of dimension scores (0-10) from the harness LLM call.
-                Also includes 'suggestions' and 'reasoning' from the LLM.
-    
-    Returns:
-        dict with probability and all scores/feedback
+    Interaction features capture compound effects:
+    - specificity * emotional_trigger (40% hit rate when both high vs 28% base)
+    - specificity * clarity_density (37% hit rate when both high)
     """
     z = INTERCEPT
     for dim in DIMS:
         score = scores.get(dim, 5)
         z += COEFS[dim] * score
+    
+    # Interaction terms
+    spec = scores.get("specificity", 5)
+    emot = scores.get("emotional_trigger", 5)
+    clar = scores.get("clarity_density", 5)
+    
+    # Normalize interactions to 0-1 range (scores are 0-10, product is 0-100)
+    z += INTERACTION_COEFS["spec_x_emot"] * (spec * emot / 100.0)
+    z += INTERACTION_COEFS["spec_x_clar"] * (spec * clar / 100.0)
     
     prob = 1.0 / (1.0 + math.exp(-z))
     prob = max(0.01, min(0.99, prob))
@@ -50,7 +62,7 @@ def predict_with_feedback(scores: dict) -> dict:
         "suggestions": scores.get("suggestions", ""),
         "reasoning": scores.get("reasoning", ""),
         **{dim: scores.get(dim, 5) for dim in DIMS},
-        "_method": "logistic_regression",
+        "_method": "logistic_regression_interactions",
     }
 
 def predict_probability(scores: dict) -> float:
