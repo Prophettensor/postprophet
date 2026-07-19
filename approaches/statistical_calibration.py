@@ -25,6 +25,15 @@ COEFS = {
 }
 INTERCEPT = -2.2056
 
+# Timing coefficients (from hit rate analysis)
+# Thursday = 34% hit, Saturday = 18% hit, base = 28%
+TIMING_COEFS = {
+    "hour_13_22_utc": 0.03,   # US business hours: 31-44% hit rate
+    "hour_00_06_utc": -0.05,  # Dead zone: 0-22% hit rate
+    "is_weekend": -0.03,       # Saturday worst at 18%
+    "is_thursday": 0.02,       # Best day at 34%
+}
+
 DIMS = list(COEFS.keys())
 
 def predict_with_feedback(scores: dict) -> dict:
@@ -41,6 +50,17 @@ def predict_with_feedback(scores: dict) -> dict:
     for dim in DIMS:
         score = scores.get(dim, 5)
         z += COEFS[dim] * score
+    
+    # Timing adjustments
+    hour = scores.get("hour_utc", 12)
+    if 13 <= hour <= 22:
+        z += TIMING_COEFS["hour_13_22_utc"]
+    if 0 <= hour <= 6:
+        z += TIMING_COEFS["hour_00_06_utc"]
+    if scores.get("is_weekend", False):
+        z += TIMING_COEFS["is_weekend"]
+    if scores.get("day_of_week") == "Thu":
+        z += TIMING_COEFS["is_thursday"]
     
     prob = 1.0 / (1.0 + math.exp(-z))
     prob = max(0.01, min(0.99, prob))
@@ -59,5 +79,16 @@ def predict_probability(scores: dict) -> float:
     for dim in DIMS:
         score = scores.get(dim, 5)
         z += COEFS[dim] * score
+    
+    # Timing adjustments
+    hour = scores.get("hour_utc", 12)
+    if 13 <= hour <= 22:
+        z += TIMING_COEFS["hour_13_22_utc"]
+    if 0 <= hour <= 6:
+        z += TIMING_COEFS["hour_00_06_utc"]
+    if scores.get("is_weekend", False):
+        z += TIMING_COEFS["is_weekend"]
+    if scores.get("day_of_week") == "Thu":
+        z += TIMING_COEFS["is_thursday"]
     prob = 1.0 / (1.0 + math.exp(-z))
     return max(0.01, min(0.99, prob))
