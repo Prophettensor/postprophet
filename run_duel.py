@@ -73,7 +73,6 @@ challenger_brier_total = 0.0
 
 for i, item in enumerate(eval_items, 1):
     context = {
-        "tweet_id": item["tweet_id"],
         "text": item["text"],
         "created_at": item["created_at"],
         "planned_post_time": item["created_at"],

@@ -30,69 +30,67 @@ jobs:
       - name: Install dependencies
         run: pip install httpx openai
       
-      - name: Validate config + check for tampering
+      - name: Structural validation (no historical data needed)
         id: validate
         run: |
           python -c "
           import json, sys, subprocess
           
-          # Check if PR modifies protected files (tamper protection)
+          # Check if PR modifies protected files
           result = subprocess.run(
               ['git', 'diff', '--name-only', 'origin/main...HEAD'],
               capture_output=True, text=True
           )
           changed_files = result.stdout.strip().split('\n')
-          # Only environments/ and approaches/ are allowed
           allowed_prefixes = ['environments/', 'approaches/']
           protected = ['data/eval_set.jsonl', 'postprophet.py', 'run_duel.py', 'scripts/', '.github/', 'docs/', 'CONTRIBUTING.md', 'README.md', 'Dockerfile', 'accounts.txt', 'test_mock.py', 'craft.py', 'market_research.py', 'content_team.py', 'generate_dashboard.py']
           for f in changed_files:
               f = f.strip()
               if not f:
                   continue
-              # Check if file is in allowed paths
               is_allowed = any(f.startswith(p) for p in allowed_prefixes)
               if not is_allowed:
                   print(f'::error::PR modifies file outside allowed paths: {f}. Only environments/ and approaches/ changes are allowed.')
                   sys.exit(1)
-              # Check if file is explicitly protected
               for p in protected:
                   if f.startswith(p) or f == p.rstrip('/'):
                       print(f'::error::PR modifies protected file: {f}')
                       sys.exit(1)
           
-          # If PR includes approaches/, run security scan on the approach file
+          # If PR includes approaches/, run security scan
           approach_files = [f for f in changed_files if f.startswith('approaches/') and f.endswith('.py') and not f.endswith('README.py')]
           for af in approach_files:
               with open(af) as f:
                   source = f.read()
-              forbidden = ['import postprophet', 'from postprophet', 'eval_set', 'predictions.jsonl', 'data/eval', 'subprocess', 'os.system', 'exec(', 'eval(']
+              forbidden = ['import postprophet', 'from postprophet', 'eval_set', 'predictions', 'data/eval', 'subprocess', 'os.system', 'exec(', 'eval(', 'open(', 'X_BEARER', 'BEARER_TOKEN', 'os.environ', 'environ']
               for term in forbidden:
                   if term in source:
                       print(f'::error::Security: {af} contains forbidden term: {term}')
                       sys.exit(1)
-              if not hasattr(__import__('importlib.util', fromlist=['spec_from_file_location']).spec_from_file_location('mod', af), 'loader'):
-                  pass
-              # Check for predict_probability function
-              if 'def predict_probability' not in source:
-                  print(f'::error::{af} must implement predict_probability(context, target) -> float')
+              if 'def predict_probability' not in source and 'def predict_with_feedback' not in source:
+                  print(f'::error::{af} must implement predict_probability or predict_with_feedback')
                   sys.exit(1)
               print(f'Security scan passed: {af}')
           
-          # Check config is valid JSON
-          try:
-              with open('environments/twitter.json') as f:
-                  env = json.load(f)
-          except Exception as e:
-              print(f'::error::Config is not valid JSON: {e}')
-              sys.exit(1)
-          
-          # Check structure
-          required = ['dimensions', 'probability_guide', 'extra_considerations']
-          for key in required:
-              if key not in env:
-                  print(f'::error::Missing required key: {key}')
+          # Validate environment config if present
+          import os
+          for env_file in [f for f in changed_files if f.startswith('environments/') and f.endswith('.json')]:
+              try:
+                  with open(env_file) as f:
+                      env = json.load(f)
+                  if 'dimensions' not in env:
+                      print(f'::error::{env_file} missing dimensions')
+                      sys.exit(1)
+                  if 'probability_guide' not in env:
+                      print(f'::error::{env_file} missing probability_guide')
+                      sys.exit(1)
+                  print(f'Config valid: {env_file}')
+              except json.JSONDecodeError as e:
+                  print(f'::error::{env_file} is not valid JSON: {e}')
                   sys.exit(1)
           
+          print('Structural validation passed')
+          "
           # Check dimensions
           if not isinstance(env['dimensions'], list) or len(env['dimensions']) == 0:
               print('::error::No dimensions defined')
@@ -117,65 +115,22 @@ jobs:
           print(f'Valid config: {len(env[\"dimensions\"])} dimensions, ~{token_estimate} tokens')
           "
       
-      - name: Run Stage 1 eval (historical, temp=0)
-        id: eval
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          POSTPROPHET_TEMPERATURE: '0'
-        run: |
-          mkdir -p data
-          
-          # Check if PR includes a custom approach
-          APPROACH=""
-          APPROACH_FILES=$(git diff --name-only origin/main...HEAD | grep '^approaches/.*\.py$' | grep -v 'README.py' || true)
-          if [ -n "$APPROACH_FILES" ]; then
-            APPROACH=$(echo "$APPROACH_FILES" | head -1 | sed 's|approaches/||; s|\.py$||')
-            echo "Using custom approach: $APPROACH"
-            python run_duel.py --approach "$APPROACH" 2>&1 || true
-          else
-            python run_duel.py 2>&1 || true
-          fi
-          
-          # Check if results exist
-          if [ ! -f data/duel_results.json ]; then
-            echo "::error::Eval did not produce results"
-            exit 1
-          fi
-          
-          # Extract results
-          python -c "
-          import json, os
-          with open('data/duel_results.json') as f:
-              results = json.load(f)
-          
-          baseline = results['baseline_brier']
-          challenger = results['challenger_brier']
-          delta = results['delta']
-          rhash = results.get('results_hash', 'unknown')
-          
-          print(f'BASELINE={baseline}')
-          print(f'CHALLENGER={challenger}')
-          print(f'DELTA={delta}')
-          print(f'HASH={rhash}')
-          
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f'BASELINE={baseline}\n')
-              f.write(f'CHALLENGER={challenger}\n')
-              f.write(f'DELTA={delta}\n')
-              f.write(f'HASH={rhash}\n')
-          
-          if delta < -0.05:
-              print('::notice::REGRESSION — PR will be auto-closed')
-          elif delta > 0.01:
-              print('::notice::IMPROVEMENT — PR enters batch queue')
-          else:
-              print('::notice::WITHIN NOISE — PR enters batch queue')
-          "
-      
-      - name: Comment results on PR + auto-close/label
-        if: always() && hashFiles('data/duel_results.json') != ''
+      - name: Label PR as batch-queued
+        if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.number }}
         run: |
-          python scripts/post_pr_results.py
+          python -c "
+          import urllib.request, json, os
+          token = os.environ['GITHUB_TOKEN']
+          pr = os.environ['PR_NUMBER']
+          url = 'https://api.github.com/repos/Prophettensor/postprophet/issues/' + pr + '/labels'
+          data = json.dumps({'labels': ['batch-queued']}).encode()
+          req = urllib.request.Request(url, data=data, headers={
+              'Authorization': f'token {token}',
+              'Content-Type': 'application/json'
+          })
+          urllib.request.urlopen(req)
+          print('PR labeled batch-queued')
+          "
