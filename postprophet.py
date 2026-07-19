@@ -1373,13 +1373,13 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     # vs LLM probability Brier 0.32 — math beats LLM at calibration
     import math as _math
     _COEFS = {
-        "hook_strength": 0.0251,
-        "specificity": 0.0900,
-        "emotional_trigger": 0.0174,
-        "bookmark_worthiness": 0.0563,
-        "structure_readability": 0.0202,
+        "hook_strength": 0.0017,
+        "specificity": 0.1232,
+        "emotional_trigger": 0.0135,
+        "bookmark_worthiness": 0.0530,
+        "structure_readability": 0.0104,
     }
-    _INTERCEPT = -2.2056
+    _INTERCEPT = -2.2312
     
     z = _INTERCEPT
     for dim, coef in _COEFS.items():
