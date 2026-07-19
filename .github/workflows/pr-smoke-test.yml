@@ -62,7 +62,7 @@ jobs:
           for af in approach_files:
               with open(af) as f:
                   source = f.read()
-              forbidden = ['import postprophet', 'from postprophet', 'eval_set', 'predictions', 'data/eval', 'subprocess', 'os.system', 'exec(', 'eval(', 'open(', 'X_BEARER', 'BEARER_TOKEN', 'os.environ', 'environ']
+              forbidden = ['import postprophet', 'from postprophet', 'eval_set', 'predictions', 'data/eval', 'subprocess', 'os.system', 'exec(', 'eval(', 'open(', 'X_BEARER', 'BEARER_TOKEN', 'os.environ', 'environ', 'import os', 'import json', 'from openai', 'import openai', 'httpx', 'requests']
               for term in forbidden:
                   if term in source:
                       print(f'::error::Security: {af} contains forbidden term: {term}')

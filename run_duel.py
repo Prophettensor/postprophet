@@ -89,10 +89,24 @@ for i, item in enumerate(eval_items, 1):
     }
     
     if custom_approach:
-        # Custom approach: call predict_probability directly
         try:
-            prob = custom_approach.predict_probability(context, item["target"])
-            prediction = {"probability": prob, "approach": args.approach}
+            if hasattr(custom_approach, 'predict_with_feedback'):
+                import inspect
+                sig = inspect.signature(custom_approach.predict_with_feedback)
+                params = list(sig.parameters.values())
+                if len(params) == 1 and params[0].name == 'scores':
+                    # Pure math approach — harness calls LLM, passes scores
+                    prediction = predict(context, target=item["target"])
+                    result = custom_approach.predict_with_feedback(prediction)
+                    prob = result.get("probability", 0.5)
+                    prediction = result
+                else:
+                    result = custom_approach.predict_with_feedback(context, item["target"])
+                    prob = result.get("probability", 0.5)
+                    prediction = result
+            else:
+                prob = custom_approach.predict_probability(context, item["target"])
+                prediction = {"probability": prob, "approach": args.approach}
         except Exception as e:
             print(f"  [{i}/{len(eval_items)}] Error: {e}")
             prob = 0.5
