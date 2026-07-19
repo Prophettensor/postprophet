@@ -14,16 +14,16 @@ Logistic regression coefficients trained on 600 predictions at temp=0.
 import math
 
 # Coefficients from 5-fold CV logistic regression on 6 causal dimensions
-# These will be updated when temp=0 retraining completes
+# Trained on 600 resolved predictions at temp=0, Brier 0.2004 (CV)
 COEFS = {
-    "hook_strength": -0.0947,
-    "specificity": 0.2348,
-    "emotional_trigger": -0.0357,
-    "bookmark_worthiness": 0.0336,
-    "structure_readability": 0.0212,
-    "clarity_density": 0.0951,
+    "hook_strength": 0.0251,
+    "specificity": 0.0900,
+    "emotional_trigger": 0.0174,
+    "bookmark_worthiness": 0.0563,
+    "structure_readability": 0.0202,
+    "clarity_density": -0.0062,
 }
-INTERCEPT = -2.6613
+INTERCEPT = -2.2056
 
 DIMS = list(COEFS.keys())
 
