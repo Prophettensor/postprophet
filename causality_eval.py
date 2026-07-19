@@ -200,6 +200,59 @@ if tp + fp > 0:
 print(f"  Accuracy: {(tp+tn)/len(scored_tweets)*100:.1f}%")
 print(f"{'─' * 60}")
 
+print(f"\n{'─' * 60}")
+print(f"FEEDBACK QUALITY CHECK")
+print(f"{'─' * 60}")
+
+import re as _re
+_DIM_NAMES = ['hook_strength', 'specificity', 'emotional_trigger', 'reply_inducement',
+              'bookmark_worthiness', 'structure_readability', 'clarity_density', 'link_penalty_risk',
+              'timing_optimization', 'novelty']
+
+def _has_dim_name(text):
+    t = text.lower()
+    for dim in _DIM_NAMES:
+        p1 = r'\b' + _re.escape(dim) + r'\b'
+        p2 = r'\b' + _re.escape(dim.replace('_', ' ')) + r'\b'
+        if _re.search(p1, t) or _re.search(p2, t):
+            return True
+    return False
+
+example_based = 0
+dimension_based = 0
+no_feedback = 0
+
+for st in scored_tweets:
+    fb = st.get("feedback", "")
+    if not fb:
+        no_feedback += 1
+        continue
+    has_imp = bool(_re.search(r'\d[\d,]*\s*(imp|impressions?)', fb.lower()))
+    has_rank = bool(_re.search(r'rank\s*#?\d|best tweet|worst tweet|top tweet', fb.lower()))
+    has_comparison = bool(_re.search(r'their best|this tweet|this one|your best', fb.lower()))
+    has_dim = _has_dim_name(fb)
+    has_score = bool(_re.search(r'score\s*:?\s*\d|dimension|weakest', fb.lower()))
+    
+    positive = sum([has_imp, has_rank, has_comparison])
+    negative = sum([has_dim, has_score])
+    
+    if positive >= 1 and negative == 0:
+        example_based += 1
+    else:
+        dimension_based += 1
+
+total_fb = example_based + dimension_based + no_feedback
+print(f"Example-based feedback:  {example_based}/{total_fb} ({example_based/total_fb*100:.0f}%)")
+print(f"Dimension-based feedback: {dimension_based}/{total_fb} ({dimension_based/total_fb*100:.0f}%)")
+print(f"No feedback:              {no_feedback}/{total_fb}")
+if total_fb > 0:
+    fb_score = example_based / total_fb
+    print(f"\nFeedback quality: {fb_score:.2f}")
+    print(f"  (1.0 = all example-based, 0.0 = all dimension-based)")
+    if fb_score < 0.5:
+        print(f"  ⚠️  WARNING: feedback is not example-based")
+print(f"{'─' * 60}")
+
 # Save
 results = {
     "approach": args.approach or "rubric",
