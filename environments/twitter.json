@@ -45,14 +45,20 @@
       "name": "link_penalty_risk",
       "category": "Algorithm signals",
       "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet)? No link or quote tweet only = 10 (safe). External link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."
+    },
+    {
+      "name": "timing_optimization",
+      "category": "Algorithm signals",
+      "description": "Is this tweet posted when the audience is active? The algorithm weighs early engagement velocity heavily (first 30 minutes). Check the posted time in the context. US business hours (13:00-22:00 UTC / 8am-5pm EST) = higher engagement windows. Late night (00:00-06:00 UTC) = dead zone, low initial velocity. Weekend posts (especially Saturday) have lower hit rates. Thursday has the highest hit rate. If the tweet is posted during a high-engagement window, score 7+. If posted during dead hours, score below 4. If timing is unknown, score 5."
     }
   ],
   "probability_guide": [
-    "All scores 7+ (especially specificity): 70-85%",
-    "Two scores 7+ (including specificity), rest decent: 45-60%",
-    "One score 7+ (specificity), rest weak: 25-40%",
-    "All scores below 6: 5-15%",
-    "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
+    "If all scores are 7+ (especially specificity): 70-85%. Do not output below 0.60.",
+    "If two scores are 7+ (including specificity) and rest are decent (5+): 0.45-0.60.",
+    "If one score is 7+ (specificity) and rest are weak: 0.25-0.40.",
+    "If all scores are below 6: 0.05-0.15.",
+    "If link_penalty_risk is below 5: cap at 0.25.",
+    "PENALTY: If timing_optimization is below 4, reduce probability by 0.10 (dead zone posting kills reach)."
   ],
   "extra_considerations": [
     "Author's follower count AND engagement baseline",
