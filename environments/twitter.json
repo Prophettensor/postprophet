@@ -7,58 +7,27 @@
   "timeframe_hours": 24,
   "dimensions": [
     {
-      "name": "hook_strength",
-      "category": "Content quality",
-      "description": "Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets. A bold claim, surprising data, or personal announcement = high. Vague statements = low."
+      "name": "similarity_to_best",
+      "category": "Pattern matching",
+      "description": "How similar is this tweet to the author top-performing tweets? Consider topic, structure, tone, length, and content type. If this tweet were placed next to their best work, would it fit? 8-10 = very similar to their best, 3-5 = similar to their average, 0-2 = similar to their worst."
     },
     {
-      "name": "specificity",
-      "category": "Content quality",
-      "description": "Does it say something concrete? Specific numbers, named projects, and concrete data points are crucial. High scores for precise details and examples; general statements about 'innovation' or 'decentralization' = low."
-    },
-    {
-      "name": "emotional_trigger",
-      "category": "Content quality",
-      "description": "Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)"
-    },
-    {
-      "name": "reply_inducement",
-      "category": "Algorithm signals",
-      "description": "Does it invite response? Open questions, contrarian claims, fill-in-the-blank formats = high (replies are worth 27-150x a like). 'Thoughts?' or 'Anyone else?' = low. Specific, answerable questions = high."
-    },
-    {
-      "name": "bookmark_worthiness",
-      "category": "Algorithm signals",
-      "description": "Is it reference-worthy? Frameworks, data points, lists, how-tos, actionable takeaways = high (bookmarks = 10-12x a like). Opinion-only or news reactions = low."
-    },
-    {
-      "name": "structure_readability",
-      "category": "Algorithm signals",
-      "description": "Line breaks between hook and body? Short first line? Visual pacing? (dwell time = ~10x a like). Wall of text = low."
-    },
-    {
-      "name": "clarity_density",
-      "category": "Algorithm signals",
-      "description": "Maximum insight per character. Every sentence carries a distinct idea. No filler, no throat-clearing. 'Stop doing X' > 'You should probably consider stopping doing X.'"
-    },
-    {
-      "name": "link_penalty_risk",
-      "category": "Algorithm signals",
-      "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet)? No link or quote tweet only = 10 (safe). External link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."
+      "name": "similarity_to_worst",
+      "category": "Pattern matching",
+      "description": "How similar is this tweet to the author worst-performing tweets? Vague announcements, filler, no substance. 8-10 = very similar to their worst, 0-2 = nothing like their worst."
     }
   ],
   "probability_guide": [
-    "All scores 7+ (especially specificity): 70-85%",
-    "Two scores 7+ (including specificity), rest decent: 45-60%",
-    "One score 7+ (specificity), rest weak: 25-40%",
-    "All scores below 6: 5-15%",
-    "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
+    "If similarity_to_best is 7+ and similarity_to_worst is below 4: output 0.40-0.60 (this matches their winning pattern).",
+    "If similarity_to_best is 5-6: output 0.20-0.35 (decent but not their best work).",
+    "If similarity_to_best is below 4 and similarity_to_worst is 5+: output 0.05-0.15 (matches their losing pattern).",
+    "Base rate is 28% hit. Most tweets should be 15-30%.",
+    "If link_penalty context says external URL present: reduce by 0.10."
   ],
   "extra_considerations": [
-    "Author's follower count AND engagement baseline",
-    "What's currently trending and whether the tweet relates",
-    "Time of day and whether that's a high-engagement window",
-    "Time elapsed since posting (older tweets have less room to grow)",
-    "Your calibration feedback: if your track record shows you're overconfident in a range, adjust down. If underconfident, adjust up. Use your history to improve."
+    "The author recent top tweets and worst tweets are shown above. Use pattern matching, not rubric scoring.",
+    "What makes their best tweets work? Does this tweet have those same qualities?",
+    "What makes their worst tweets fail? Does this tweet share those flaws?",
+    "Timing: US business hours (13:00-22:00 UTC) see higher hit rates."
   ]
 }
