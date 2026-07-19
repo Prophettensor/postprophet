@@ -14,7 +14,7 @@
     {
       "name": "specificity",
       "category": "Content quality",
-      "description": "Does it say something concrete? Specific numbers, named projects, and concrete data points are crucial. High scores for precise details and examples; general statements about 'innovation' or 'decentralization' = low."
+      "description": "Does the tweet contain CONCRETE, VERIFIABLE details? Score 8-10 ONLY if the tweet contains at least one of: a specific number (Brier 0.21, $2.3M, 600 predictions), a named project (Zipcode, Targon, Numinous), a specific date (July 19), or a verifiable claim (testable, not opinion). Score 4-6 for general topics without specifics. Score 1-3 for vague claims (\"this is exciting\", \"big things coming\", \"the future of AI\"). If you remove all specific nouns and numbers and the tweet still makes sense, it scores below 4."
     },
     {
       "name": "emotional_trigger",
