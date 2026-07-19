@@ -1,5 +1,43 @@
 # PostProphet — Future Enhancements
 
+## Multi-Platform: Artificial General Emotional Intelligence
+
+The architecture is platform-agnostic. The environment config is swappable.
+
+Current: `environments/twitter.json` — Bittensor ecosystem (announcements, alpha, technical content)
+
+Future environments:
+- `twitter_casual.json` — humor, relatability, cultural timing, shitposting
+- `tiktok.json` — hook in first 3 seconds, trend alignment, audio choice
+- `email.json` — subject line open rate, body scannability, CTA clarity
+- `music.json` — melodic hook, lyrical relatability, production quality
+
+Same harness, same eval, same logistic regression. Different dimensions, different coefficients, different feedback.
+
+### Meta-dimensions (universal across all environments)
+
+Every piece of content that resonates has:
+1. **Emotional trigger** — makes you feel something (humor, pride, outrage, FOMO)
+2. **Hook** — stops the scroll in the first moment
+3. **Context fit** — right topic at the right time for this audience
+4. **Clarity** — the message lands instantly
+
+Environment-specific dimensions (specificity, bookmark worthiness) swap per platform. Meta-dimensions stay. The logistic regression learns different weights for each environment.
+
+### Why not all tweets are announcements
+
+Not all viral tweets are big calls to action. Casual, funny, cultural commentary tweets perform well too. The current dimensions are optimized for dense, informative content. They would score a viral shitpost low and predict it misses.
+
+This is fine for now — we're tracking Bittensor accounts that primarily post announcements and alpha. But the expansion path is clear: add casual tweet dimensions, train separate coefficients, same harness.
+
+### Vision
+
+PostProphet as a general communication calibration harness — any platform, any content type, any audience. Artificial General Emotional Intelligence. The agent recognizes emotional patterns that resonate, understands structural patterns that drive engagement, adapts to any platform, and gives feedback grounded in real outcomes.
+
+Bittensor/X is the training ground. The eval harness is how it learns.
+
+---
+
 ## Web of Trust / Trust Graph
 
 **Idea:** Build an engagement-based trust graph across tracked accounts. Instead of just showing follower count + median impressions when someone replies/quotes, compute a centrality/trust score — "how many other tracked accounts engage with this person?"
