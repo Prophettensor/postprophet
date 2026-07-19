@@ -1,33 +1,67 @@
-"""Run eval on both current (main) and challenger (this branch) configs.
-Saves all 50 per-tweet results + raw LLM responses + SHA256 hash for verification.
+"""Run eval on an approach (config-based or custom code-based).
 
 Usage:
-  POSTPROPHET_TEMPERATURE=0 python run_duel.py
+  # Config-based (LLM prompt)
+  python run_duel.py
+  
+  # Custom approach (code in approaches/)
+  python run_duel.py --approach cosine_similarity
 
-Temperature 0 makes outputs deterministic for reproducible verification.
+Temperature 0 for deterministic, reproducible eval.
 """
-import json, time, os, sys, hashlib
+import json, time, os, sys, hashlib, argparse, importlib.util
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+os.environ["POSTPROPHET_TEMPERATURE"] = "0"
 
 from postprophet import (
-    predict, load_environment, build_prompt,
+    predict, run_eval, load_environment, build_prompt,
     PREDICTION_PROMPT, HARNESS_VERSION, HARNESS_HASH,
     _compute_config_hash, EVAL_FILE, OPENAI_MODEL
 )
 
-# Force temperature 0 for reproducible eval
-os.environ["POSTPROPHET_TEMPERATURE"] = "0"
+parser = argparse.ArgumentParser()
+parser.add_argument("--approach", default=None, help="Custom approach name (e.g. cosine_similarity)")
+args = parser.parse_args()
+
+# Load custom approach if specified
+custom_approach = None
+if args.approach:
+    approach_path = os.path.join(os.path.dirname(__file__), "approaches", f"{args.approach}.py")
+    if not os.path.exists(approach_path):
+        print(f"Approach not found: {approach_path}")
+        sys.exit(1)
+    
+    spec = importlib.util.spec_from_file_location(args.approach, approach_path)
+    custom_approach = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(custom_approach)
+    
+    if not hasattr(custom_approach, "predict_probability"):
+        print(f"Approach {args.approach} does not implement predict_probability()")
+        sys.exit(1)
+    
+    print(f"Using custom approach: {args.approach}")
+    
+    # Security check: approach must not import postprophet
+    with open(approach_path) as f:
+        source = f.read()
+    forbidden = ["import postprophet", "from postprophet", "eval_set", "predictions.jsonl", "data/eval"]
+    for term in forbidden:
+        if term in source:
+            print(f"SECURITY: Approach contains forbidden term: {term}")
+            sys.exit(1)
+    
+    print("  Security check passed")
 
 # Load eval set
 with open(EVAL_FILE) as f:
     eval_items = [json.loads(line) for line in f if line.strip()]
 
 print(f"Eval set: {len(eval_items)} tweets")
-print(f"Current version: {HARNESS_VERSION} ({HARNESS_HASH})")
 print(f"Model: {OPENAI_MODEL}")
 print(f"Temperature: 0 (deterministic)")
+print(f"Approach: {args.approach or 'default (LLM config)'}")
 print()
 
 # ── Run challenger eval ─────────────────────────────────────────
@@ -55,14 +89,29 @@ for i, item in enumerate(eval_items, 1):
         "has_x_data": True,
     }
     
-    try:
-        prediction = predict(context, target=item["target"])
-        prob = prediction.get("probability", 0.5)
-        time.sleep(1.5)
-    except Exception as e:
-        print(f"  [{i}/{len(eval_items)}] Error: {e}")
-        prob = 0.5
-        prediction = {"error": str(e)}
+    if custom_approach:
+        # Custom approach: call predict_probability directly
+        try:
+            prob = custom_approach.predict_probability(context, item["target"])
+            prediction = {"probability": prob, "approach": args.approach}
+        except Exception as e:
+            print(f"  [{i}/{len(eval_items)}] Error: {e}")
+            prob = 0.5
+            prediction = {"error": str(e)}
+    else:
+        # Default LLM approach
+        try:
+            prediction = predict(context, target=item["target"])
+            prob = prediction.get("probability", 0.5)
+            time.sleep(1.5)
+        except Exception as e:
+            print(f"  [{i}/{len(eval_items)}] Error: {e}")
+            prob = 0.5
+            prediction = {"error": str(e)}
+    
+    # Validate probability
+    if not isinstance(prob, (int, float)) or prob < 0.0 or prob > 1.0:
+        prob = max(0.0, min(1.0, float(prob))) if isinstance(prob, (int, float)) else 0.5
     
     actual = 1.0 if item["hit"] else 0.0
     brier_contrib = (prob - actual) ** 2
@@ -78,7 +127,6 @@ for i, item in enumerate(eval_items, 1):
         "challenger_brier": brier_contrib,
     })
     
-    # Save raw LLM response for verification
     challenger_raw.append({
         "tweet_id": item["tweet_id"],
         "author": item["author"]["username"],
@@ -127,31 +175,32 @@ for i in range(len(eval_items)):
         "challenger_prob": challenger_results[i]["challenger_prob"],
     })
 
-# ── Compute hash for verification ───────────────────────────────
+# ── Hash ───────────────────────────────────────────────────────
 
 raw_json = json.dumps(challenger_raw, sort_keys=True)
 results_hash = hashlib.sha256(raw_json.encode()).hexdigest()
 
-# ── Save everything ─────────────────────────────────────────────
+# ── Save ───────────────────────────────────────────────────────
 
 delta = baseline_brier - challenger_brier
 
+approach_name = args.approach or "llm_config"
+
 results = {
-    "duel_id": 2,
-    "hypothesis": "Enforce probability guide as MANDATORY mapping. Model was ignoring it — outputting 25-35% when guide says 70-85% for all scores 7+. Changed 'rough guide' to 'MANDATORY mapping (do not deviate)' in prompt.",
+    "approach": approach_name,
+    "hypothesis": f"Custom approach: {approach_name}" if args.approach else "Config-based LLM approach",
     "baseline_version": eval_items[0].get("original_version", "1.0.2"),
     "baseline_hash": "v_31ea78b4",
     "challenger_version": HARNESS_VERSION,
-    "challenger_hash": HARNESS_HASH,
+    "challenger_hash": HARNESS_HASH if not args.approach else f"approach:{args.approach}",
     "baseline_brier": round(baseline_brier, 4),
     "challenger_brier": round(challenger_brier, 4),
     "delta": round(delta, 4),
-    "model": OPENAI_MODEL,
+    "model": OPENAI_MODEL if not args.approach else f"{OPENAI_MODEL} + text-embedding-3-small",
     "temperature": 0,
     "eval_size": len(eval_items),
     "results_hash": results_hash,
     "per_tweet": merged,
-    "raw_file": "data/duel_raw.json",
 }
 
 results_file = os.path.join(os.path.dirname(__file__), "data", "duel_results.json")
@@ -163,16 +212,15 @@ with open(raw_file, "w") as f:
     json.dump(challenger_raw, f, indent=2)
 
 print(f"\n{'─' * 50}")
-print(f"Baseline:   {baseline_brier:.4f} ({results['baseline_version']})")
-print(f"Challenger: {challenger_brier:.4f} ({results['challenger_hash']})")
-print(f"Delta:      {delta:+.4f}")
+print(f"Baseline ({results['baseline_version']}):  {baseline_brier:.4f}")
+print(f"Challenger ({approach_name}): {challenger_brier:.4f}")
+print(f"Delta:                     {delta:+.4f}")
 if delta > 0.01:
-    print(f"Result:     IMPROVEMENT ✅")
+    print(f"Result:                    IMPROVEMENT ✅")
 elif delta < -0.01:
-    print(f"Result:     REGRESSION ❌")
+    print(f"Result:                    REGRESSION ❌")
 else:
-    print(f"Result:     NO SIGNIFICANT CHANGE")
+    print(f"Result:                    WITHIN NOISE")
+print(f"Hash:                      {results_hash}")
 print(f"{'─' * 50}")
-print(f"Results hash: {results_hash}")
-print(f"Raw responses: data/duel_raw.json")
-print(f"To verify: clone repo, checkout this branch, run with temp=0, compare hash")
+print(f"To verify: set POSTPROPHET_TEMPERATURE=0, run with --approach {approach_name}, compare hash")
