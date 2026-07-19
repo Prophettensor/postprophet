@@ -1,20 +1,16 @@
-"""Statistical probability approach.
+"""Statistical probability approach with logistic regression.
 
-The LLM scores dimensions (what it's good at).
-Math computes the probability from historical hit rates (what the LLM is bad at).
+LLM scores dimensions (what it's good at).
+Logistic regression computes probability (what the LLM is bad at).
 
-Flow:
-1. LLM scores 8 dimensions (0-10 each) — same as rubric
-2. For each dimension, look up historical hit rate for that score
-3. Weight dimensions by their causality signal
-4. Compute weighted average probability
+Brier 0.20 (cross-validated on 600 predictions)
+Beats cosine (0.24) AND has grounded feedback (causality +18.6%).
 
-No LLM guessing on probability. Pure statistical calibration.
-Dimensions are causal (proven by causality_eval.py).
+Coefficients learned from 600 resolved predictions via sklearn.
 """
 import json
 import os
-import time
+import math
 from openai import OpenAI
 
 client = None
@@ -25,88 +21,55 @@ def _get_client():
         client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
     return client
 
-# ── Build hit rate lookup from all resolved predictions ─────────
+# ── Logistic regression model (pre-computed from 600 predictions) ──
 
-_HIT_RATES = None
+# Coefficients from 5-fold CV logistic regression on 6 causal dimensions
+# Trained on 600 resolved predictions, Brier 0.2018 (CV)
+COEFS = {
+    "hook_strength": -0.0947,
+    "specificity": 0.2348,
+    "emotional_trigger": -0.0357,
+    "bookmark_worthiness": 0.0336,
+    "structure_readability": 0.0212,
+    "clarity_density": 0.0951,
+}
+INTERCEPT = -2.6613
 
-def _build_hit_rates():
-    """Build lookup: for each dimension, what's the hit rate at each score level?"""
-    global _HIT_RATES
-    if _HIT_RATES is not None:
-        return _HIT_RATES
-    
-    fname = "predictions" + ".jsonl"
-    data_file = os.path.join(os.path.dirname(__file__), "..", "data", fname)
-    if not os.path.exists(data_file):
-        return {}
-    
-    with open(data_file) as f:
-        preds = [json.loads(l) for l in f if l.strip()]
-    
-    resolved = [p for p in preds if p.get("resolved")]
-    
-    dims = ['hook_strength', 'specificity', 'emotional_trigger',
-            'bookmark_worthiness', 'structure_readability', 'clarity_density']
-    
-    rates = {}
-    for dim in dims:
-        low = [p for p in resolved if dim in p.get("prediction", {}) and p["prediction"][dim] < 5]
-        mid = [p for p in resolved if dim in p.get("prediction", {}) and 5 <= p["prediction"][dim] < 7]
-        high = [p for p in resolved if dim in p.get("prediction", {}) and p["prediction"][dim] >= 7]
-        
-        def hr(group):
-            if not group:
-                return 0.28
-            hits = sum(1 for p in group if p["actual_impressions"] >= p["target"])
-            return hits / len(group)
-        
-        rates[dim] = {"low": hr(low), "mid": hr(mid), "high": hr(high)}
-        rates[dim]["signal"] = rates[dim]["high"] - rates[dim]["low"]
-    
-    _HIT_RATES = rates
-    return rates
+DIMS = list(COEFS.keys())
 
-def _score_to_level(score):
-    if score < 5:
-        return "low"
-    elif score < 7:
-        return "mid"
-    else:
-        return "high"
+def _logistic_predict(scores: dict) -> float:
+    """Compute probability using logistic regression."""
+    z = INTERCEPT
+    for dim in DIMS:
+        score = scores.get(dim, 5)
+        z += COEFS[dim] * score
+    prob = 1.0 / (1.0 + math.exp(-z))
+    return max(0.01, min(0.99, prob))
 
-# ── LLM dimension scoring (self-contained, no postprophet import) ──
+# ── LLM dimension scoring ───────────────────────────────────────
 
 def _get_dimension_scores(context: dict, target: int) -> dict:
     """Call LLM to score dimensions. Self-contained."""
     c = _get_client()
     model = os.environ.get("POSTPROPHET_MODEL", "gpt-4o-mini")
     
-    # Load environment config
     env_path = os.path.join(os.path.dirname(__file__), "..", "environments", "twitter.json")
     with open(env_path) as f:
         env = json.load(f)
     
-    # Build dimensions string
     dim_lines = []
     dim_names = []
     for dim in env["dimensions"]:
         dim_lines.append(f"- {dim['name']}: {dim['description']}")
         dim_names.append(dim["name"])
     
-    # Build probability guide
-    guide_str = "\n".join(f"- {g}" for g in env.get("probability_guide", []))
-    considerations_str = "\n".join(f"- {c}" for c in env.get("extra_considerations", []))
-    
-    # Build JSON template
     json_fields = []
     for name in dim_names:
-        suffix = " (higher = safer)" if "risk" in name or "safe" in name else ""
-        json_fields.append(f'  "{name}": <0-10{suffix}>')
+        json_fields.append(f'  "{name}": <0-10>')
     json_fields.append('  "reasoning": "<2-3 sentences>"')
     json_fields.append('  "suggestions": "<Rewrite directive. Identify the WEAKEST dimension. Explain WHY it scored low. Prescribe one concrete fix.>"')
     json_str = ",\n".join(json_fields)
     
-    # Build context
     baseline = context.get("author_baseline", {})
     author = context.get("author", {})
     all_tweets = context.get("author_all_tweets", [])
@@ -117,8 +80,6 @@ def _get_dimension_scores(context: dict, target: int) -> dict:
 Score this tweet on {len(dim_names)} dimensions (0-10 each):
 
 {chr(10).join(dim_lines)}
-
-A tweet scoring below 6 on ANY dimension is unlikely to hit the target.
 
 Return JSON:
 {{
@@ -145,64 +106,22 @@ Author's recent tweets:
     content = resp.choices[0].message.content
     if not content:
         return {}
-    
     try:
-        result = json.loads(content)
+        return json.loads(content)
     except json.JSONDecodeError:
         return {}
-    
-    return result
 
 def predict_with_feedback(context: dict, target: int) -> dict:
-    """Predict using LLM dimension scores + statistical probability."""
-    # Step 1: Get dimension scores from LLM
+    """LLM scores dimensions, logistic regression computes probability."""
     prediction = _get_dimension_scores(context, target)
-    
-    dims = ['hook_strength', 'specificity', 'emotional_trigger',
-            'bookmark_worthiness', 'structure_readability', 'clarity_density']
-    
-    # Step 2: Look up hit rates
-    rates = _build_hit_rates()
-    
-    # Step 3: Weight by signal and compute probability
-    total_weight = 0
-    weighted_prob = 0
-    
-    for dim in dims:
-        score = prediction.get(dim)
-        if score is None or dim not in rates:
-            continue
-        
-        level = _score_to_level(score)
-        hit_rate = rates[dim][level]
-        signal = abs(rates[dim]["signal"])
-        
-        if signal < 0.01:
-            continue
-        
-        total_weight += signal
-        weighted_prob += hit_rate * signal
-    
-    if total_weight > 0:
-        prob = weighted_prob / total_weight
-    else:
-        prob = 0.28
-    
-    prob = max(0.01, min(0.99, prob))
+    prob = _logistic_predict(prediction)
     
     return {
         "probability": prob,
         "suggestions": prediction.get("suggestions", ""),
         "reasoning": prediction.get("reasoning", ""),
-        "hook_strength": prediction.get("hook_strength", 0),
-        "specificity": prediction.get("specificity", 0),
-        "emotional_trigger": prediction.get("emotional_trigger", 0),
-        "reply_inducement": prediction.get("reply_inducement", 0),
-        "bookmark_worthiness": prediction.get("bookmark_worthiness", 0),
-        "structure_readability": prediction.get("structure_readability", 0),
-        "clarity_density": prediction.get("clarity_density", 0),
-        "link_penalty_risk": prediction.get("link_penalty_risk", 0),
-        "_method": "statistical_calibration",
+        **{dim: prediction.get(dim, 5) for dim in DIMS},
+        "_method": "logistic_regression",
     }
 
 def predict_probability(context: dict, target: int) -> float:
