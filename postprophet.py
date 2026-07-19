@@ -967,7 +967,7 @@ def build_prompt(env: dict) -> str:
     json_fields.append(f'  "point_estimate": <integer, your best guess at total {env["metric"]} after {{timeframe}}h>')
     json_fields.append(f'  "reasoning": "<2-3 sentences. Reference specific data: which of their past content is this most similar to? What makes it better or worse?>"')
     json_fields.append(f'  "pattern_analysis": "<1-2 sentences. What specific pattern does their best content use that this should match?>"')
-    json_fields.append(f'  "suggestions": "<Rewrite directive. Identify the WEAKEST dimension by name and score. Explain WHY it scored low with a specific reference to this tweet vs their best content. Then prescribe one concrete fix — not a rephrased opener, but a structural change. Example: their best tweet opens with a specific number; this one opens with a vague claim. Fix: replace the first sentence with the actual metric. Another example: their best tweet ends with an implicit question that drives replies; this one ends with a statement. Fix: reframe the ending as a question only an insider would answer. Match the quality of their best work, not generic best practices.>"')
+    json_fields.append(f'  "suggestions": "<Example-based coaching. Compare this tweet to the author BEST and WORST tweets shown above. Identify the ONE specific structural difference between this tweet and their best work. Then prescribe a concrete fix. Format: Their best tweet (show rank + impressions) does X. This tweet does Y. Fix: do Z. Do NOT reference dimension scores. Do NOT give generic advice. Reference the actual text of their best tweet.>"')
     json_str = ",\n".join(json_fields)
     
     content_type = env.get("content_type", "post")
