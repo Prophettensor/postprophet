@@ -1367,6 +1367,31 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
     except (json.JSONDecodeError, IndexError, TypeError):
         result = {"probability": 0.5, "reasoning": "parse error", "suggestions": ""}
 
+    # Override probability with logistic regression (statistical calibration)
+    # LLM scores dimensions, math computes probability.
+    # Coefficients trained on 600 predictions at temp=0, CV Brier 0.2004
+    # vs LLM probability Brier 0.32 — math beats LLM at calibration
+    import math as _math
+    _COEFS = {
+        "hook_strength": 0.0251,
+        "specificity": 0.0900,
+        "emotional_trigger": 0.0174,
+        "bookmark_worthiness": 0.0563,
+        "structure_readability": 0.0202,
+        "clarity_density": -0.0062,
+    }
+    _INTERCEPT = -2.2056
+    
+    z = _INTERCEPT
+    for dim, coef in _COEFS.items():
+        score = result.get(dim, 5)
+        z += coef * score
+    calibrated_prob = 1.0 / (1.0 + _math.exp(-z))
+    calibrated_prob = max(0.01, min(0.99, calibrated_prob))
+    
+    result["_llm_probability"] = result.get("probability", 0.5)
+    result["probability"] = calibrated_prob
+
     return result
 
 
