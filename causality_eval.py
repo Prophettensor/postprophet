@@ -179,7 +179,29 @@ print(f"  (zero = no signal or no dimensions)")
 print(f"{'─' * 60}")
 
 # ── Save ───────────────────────────────────────────────────────
+print(f"\n{'─' * 60}")
+print(f"CONFUSION MATRIX (threshold 0.5)")
+print(f"{'─' * 60}")
+tp = tn = fp = fn = 0
+for st in scored_tweets:
+    actual = st["item"]["hit"]
+    predicted = st.get("prob", 0.5) >= 0.5
+    if actual and predicted: tp += 1
+    elif actual and not predicted: fn += 1
+    elif not actual and predicted: fp += 1
+    else: tn += 1
 
+print(f"              Pred NO  Pred YES")
+print(f"  Actual NO    {tn:4d}      {fp:4d}")
+print(f"  Actual YES   {fn:4d}      {tp:4d}")
+if tp + fn > 0:
+    print(f"  Recall: {tp/(tp+fn)*100:.0f}% ({tp}/{tp+fn} hits caught)")
+if tp + fp > 0:
+    print(f"  Precision: {tp/(tp+fp)*100:.0f}% ({tp}/{tp+fp} predicted hits correct)")
+print(f"  Accuracy: {(tp+tn)/len(scored_tweets)*100:.1f}%")
+print(f"{'─' * 60}")
+
+# Save
 results = {
     "approach": args.approach or "rubric",
     "scorer": "causality",
