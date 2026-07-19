@@ -1378,7 +1378,6 @@ def predict(context: dict, target: int = None, timeframe: int = None) -> dict:
         "emotional_trigger": 0.0174,
         "bookmark_worthiness": 0.0563,
         "structure_readability": 0.0202,
-        "clarity_density": -0.0062,
     }
     _INTERCEPT = -2.2056
     
