@@ -7,58 +7,23 @@
   "timeframe_hours": 24,
   "dimensions": [
     {
-      "name": "hook_strength",
-      "category": "Content quality",
-      "description": "Does it open with something that stops the scroll? Look at their top-performing tweets AND the ecosystem's best tweets. A bold claim, surprising data, or personal announcement = high. Vague statements = low."
-    },
-    {
-      "name": "specificity",
-      "category": "Content quality",
-      "description": "Does it say something concrete? Specific numbers, named projects, and concrete data points are crucial. High scores for precise details and examples; general statements about 'innovation' or 'decentralization' = low."
-    },
-    {
-      "name": "emotional_trigger",
-      "category": "Content quality",
-      "description": "Does it make the reader feel something? Pride, outrage, curiosity, FOMO = high. Neutral information delivery = low. Also consider: is the ecosystem buzzing about this topic right now? (check recent industry pulse)"
-    },
-    {
-      "name": "reply_inducement",
-      "category": "Algorithm signals",
-      "description": "Does it invite response? Open questions, contrarian claims, fill-in-the-blank formats = high (replies are worth 27-150x a like). 'Thoughts?' or 'Anyone else?' = low. Specific, answerable questions = high."
-    },
-    {
-      "name": "bookmark_worthiness",
-      "category": "Algorithm signals",
-      "description": "Is it reference-worthy? Frameworks, data points, lists, how-tos, actionable takeaways = high (bookmarks = 10-12x a like). Opinion-only or news reactions = low."
-    },
-    {
-      "name": "structure_readability",
-      "category": "Algorithm signals",
-      "description": "Line breaks between hook and body? Short first line? Visual pacing? (dwell time = ~10x a like). Wall of text = low."
-    },
-    {
-      "name": "clarity_density",
-      "category": "Algorithm signals",
-      "description": "Maximum insight per character. Every sentence carries a distinct idea. No filler, no throat-clearing. 'Stop doing X' > 'You should probably consider stopping doing X.'"
-    },
-    {
-      "name": "link_penalty_risk",
-      "category": "Algorithm signals",
-      "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet)? No link or quote tweet only = 10 (safe). External link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."
+      "name": "calibrated_match",
+      "category": "Few-shot learning",
+      "description": "Compare this tweet to the resolved examples shown in the context. The examples include tweets that HIT (reached 2x median) and tweets that MISSED. Which group does this tweet resemble more? Consider: content type, specificity, hook strength, structure, and topic. Score 8-10 if it strongly resembles the hits, 4-6 if it is ambiguous, 0-3 if it resembles the misses."
     }
   ],
   "probability_guide": [
-    "All scores 7+ (especially specificity): 70-85%",
-    "Two scores 7+ (including specificity), rest decent: 45-60%",
-    "One score 7+ (specificity), rest weak: 25-40%",
-    "All scores below 6: 5-15%",
-    "Link penalty risk below 5? Cap probability at 25% (links destroy reach)"
+    "Base rate: 28% of tweets hit.",
+    "If calibrated_match is 7+ (resembles hits): output 0.35-0.55.",
+    "If calibrated_match is 4-6 (ambiguous): output 0.15-0.30.",
+    "If calibrated_match is below 4 (resembles misses): output 0.05-0.15.",
+    "External links: subtract 0.10.",
+    "Dead zone hours (00:00-06:00 UTC): subtract 0.10."
   ],
   "extra_considerations": [
-    "Author's follower count AND engagement baseline",
-    "What's currently trending and whether the tweet relates",
-    "Time of day and whether that's a high-engagement window",
-    "Time elapsed since posting (older tweets have less room to grow)",
-    "Your calibration feedback: if your track record shows you're overconfident in a range, adjust down. If underconfident, adjust up. Use your history to improve."
+    "The resolved examples in the context are your training data. Learn from them.",
+    "What do the hits have in common that the misses do not?",
+    "Does this tweet have those qualities?",
+    "Author history and ecosystem context are also shown for reference."
   ]
 }
