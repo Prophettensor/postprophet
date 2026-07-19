@@ -45,6 +45,11 @@
       "name": "link_penalty_risk",
       "category": "Algorithm signals",
       "description": "Does the tweet contain an EXTERNAL URL (not a quote tweet)? No link or quote tweet only = 10 (safe). External link present = 0-3 (30-94% reach reduction). 'Link in bio/reply' workaround = 7-8. Higher score = safer."
+    },
+    {
+      "name": "novelty",
+      "category": "Content",
+      "description": "Is this a topic the author has NOT posted about recently? Check the author recent tweets above. If this is a new topic, angle, or announcement they havent covered, score 7-10 (novelty drives curiosity). If it repeats a topic they post about frequently, score 3-5. If it is nearly identical to a recent tweet, score 1-2. Novel topics can go either way: curiosity drives engagement, but audience may not be primed."
     }
   ],
   "probability_guide": [
