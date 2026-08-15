@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "content-agent"
+version = "0.1.0"
+description = "Marketing layer for what you ship. Connects to your agent stack, understands your vision and market, turns it into a publishing presence, and learns from real engagement."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Buck" }]
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+content-agent = "content_agent.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/content_agent"]

@@ -1,0 +1,55 @@
+# content-agent dogfood instance: the PostProphet account.
+# This is the USE side — Buck's live instance marketing the content-agent product
+# itself, grounded in its own shipping. Meta and self-reinforcing.
+
+name: postprophet
+
+connectors:
+  - name: git
+    type: git
+    options:
+      repos:
+        - /opt/data/content-agent       # the product itself
+        - /opt/data/Keg                 # compression benchmark work
+        - /opt/data/confeTTI            # T2I speed competition
+        - /opt/data/dtao-trader         # dTAO trading
+      since_days: 14
+      limit_per_repo: 3
+  - name: research
+    type: agent_output
+    options:
+      path: /opt/data/content-agent/data/research/
+      exts: [".json", ".md", ".txt"]
+      kind: finding
+      source: research
+
+vision:
+  positioning: "Content agents that learn from real engagement, not vibes — grounded in what builders actually ship."
+  audience:
+    - "builders"
+    - "coding agents"
+    - "agents ship all day and need marketing for it"
+  competitors:
+    - "engagement-bait content bots"
+  problem: "builders ship continuously but have no marketing arm that understands what they're building"
+  market: "the market of builders and AI agents producing work that goes unmarketed"
+  avoid:
+    - "reach prediction guarantees"
+    - "gaming the algorithm"
+
+voice:
+  tone: direct
+  do_not:
+    - emojis
+    - hashtags
+  max_chars: 280
+
+account:
+  platform: x
+  handle: postprophet
+  publish_mode: coach
+
+loop:
+  candidates_per_round: 5
+  strategies: []
+  measure_interval_hours: 12

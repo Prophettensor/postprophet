@@ -1,0 +1,56 @@
+# content-agent builder instance — EXAMPLE (copy and edit)
+# This ONE file defines "using the product": your connectors, vision, voice,
+# account, and loop. The framework (src/content_agent) is shared and unchanged.
+#
+# No secrets here. Auth (e.g. xurl) is read from your credentials store/env.
+
+name: my-build
+
+# --- connect to your agent stack ---
+# Each connector pulls discrete facts ("seeds") from a source in your stack.
+# Shipped types: git, agent_output, webhook. Add your own via a thin adapter.
+connectors:
+  - name: git
+    type: git
+    options:
+      repos: ["."]              # paths to your repos
+      since_days: 14
+      limit_per_repo: 5
+  - name: research
+    type: agent_output           # any agent writing files can feed ideas
+    options:
+      path: agent-outputs/       # dir where your agents drop output
+      exts: [".json", ".md", ".txt"]
+      kind: finding
+
+# --- why you're building (feeds the idea layer) ---
+vision:
+  positioning: "We build X for Y so that Z."
+  audience:
+    - "builder personas"
+  competitors:
+    - "names"
+  problem: "the problem you solve"
+  market: "one-line market description"
+  avoid:                        # topics/claims content must never make
+    - "claims we must never make"
+
+# --- voice / content constraints ---
+voice:
+  tone: direct
+  do_not:
+    - emojis
+    - hashtags
+  max_chars: 280
+
+# --- publishing account ---
+account:
+  platform: x
+  handle: your_handle
+  publish_mode: coach           # coach = human reviews/posts; auto = agent posts
+
+# --- loop tuning ---
+loop:
+  candidates_per_round: 5
+  strategies: []                # empty = use all strategies
+  measure_interval_hours: 12    # how often the no_agent cron resolves outcomes
