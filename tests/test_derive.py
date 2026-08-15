@@ -71,3 +71,21 @@ def test_pipeline_derive_mode_fills_gaps(tmp_path):
     # vision should have been filled from the README, voice from memory
     assert "Ship Engine" in pipe.config.vision.positioning or "Markets what agents" in pipe.config.vision.positioning
     assert "emojis" in pipe.config.voice.do_not
+
+
+def test_internal_memory_seeds_not_surfaced_as_ideas(tmp_path):
+    from postprophet.pipeline import Pipeline
+    from postprophet.config import (InstanceConfig, LoopConfig, ConnectorConfig,
+                                    AccountConfig, VisionConfig)
+    from postprophet.context import Seed
+    from postprophet.ideas import surface_ideas
+
+    # agent_memory seeds carry the internal tag and must never become ideas
+    mem_seed = Seed(source="agent_memory:MEMORY.md", kind="finding",
+                    title="NO emojis. dry tone.", detail="NO emojis. dry tone.",
+                    tags=["agent_memory", "internal"])
+    real_seed = Seed(source="git:repo", kind="ship", title="shipped v2", tags=[])
+    ideas = surface_ideas([mem_seed, real_seed], VisionConfig())
+    titles = [i["seed"]["title"] for i in ideas]
+    assert all("NO emojis" not in t for t in titles)
+    assert any("shipped v2" in t for t in titles)

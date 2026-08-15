@@ -167,13 +167,35 @@ class Pipeline:
 
     def draft_prompts(self, plan=None) -> list[dict]:
         """Build the drafting instructions for a plan. Returns [{strategy, lever,
-        idea, prompt}]. The agent drafts post text from these (in-session)."""
+        idea, prompt}]. The agent drafts post text from these (in-session).
+
+        The agent's own memory is included as the VOICE/VISION source (when the
+        instance has agent_memory connectors), so the agent writes in its own
+        voice without any voice/vision config being required."""
         plan = plan if plan is not None else self.plan()
+        memory = self._agent_memory_text()
         out = []
         for item in plan:
-            prompt = build_draft_prompt(item, self.config.vision, self.config.voice)
+            prompt = build_draft_prompt(item, self.config.vision, self.config.voice,
+                                        agent_memory=memory)
             out.append({**item, "prompt": prompt})
         return out
+
+    def _agent_memory_text(self) -> str:
+        """Read the agent's memory files via an agent_memory connector, returned
+        as raw text for grounding the drafting prompt's voice/vision."""
+        for cfg in self.config.connectors:
+            if cfg.type == "agent_memory":
+                c = build_connector(cfg)
+                if c is None:
+                    continue
+                try:
+                    seeds = c.collect()
+                except Exception:
+                    continue
+                # agent_memory seeds carry the raw line in 'detail'
+                return "\n".join(s.get("detail", "") for s in seeds)
+        return ""
 
     # ---- publish + measure ----
     def record_post(self, strategy, lever, text, tweet_id=None, posted=False,

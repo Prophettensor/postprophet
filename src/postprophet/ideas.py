@@ -123,6 +123,9 @@ def surface_ideas(seeds: List[Seed], vision: VisionConfig,
     """
     ideas = []
     for seed in seeds:
+        # internal seeds (agent memory = voice/context, not content) never surface
+        if "internal" in seed.tags:
+            continue
         fit, why = _fit_score(seed, vision)
         angles = ANGLE_BY_KIND.get(seed.kind, ["general"])
         ideas.append({

@@ -30,11 +30,14 @@ A builder adopting this never touches the framework — they copy
 
 ## Setup is just "connect your agent"
 
-You don't write a vision statement or describe your voice — your agent already
-knows them. With `loop.derive: true` (the default), PostProphet reads your
-vision, positioning, problem, and voice straight from your agent's own memory
-(`~/.hermes/memories/`, `./AGENTS.md`, `./CLAUDE.md`) and the READMEs of the
-repos you connect. Hand-authored config is optional and wins where set.
+You don't write a vision statement or describe your voice — **your agent already
+knows them.** PostProphet reads the agent's own memory (MEMORY.md, USER.md,
+AGENTS.md, CLAUDE.md) and uses it as the *authoritative voice and vision* for
+drafting. The agent writes in its own voice, honoring its own preferences ("no
+emojis", "dry tone", "no fluff"), grounded in what it actually builds.
+
+Voice/vision config is entirely optional — it's only an override if you want to
+force something the agent wouldn't naturally do.
 
 So a minimal config is just:
 
@@ -53,7 +56,7 @@ loop:
 ```
 
 That's it. Connect your agent, and PostProphet knows what you're building, why,
-and how you want it to sound.
+and how you want it to sound — because the agent already knows all of it.
 
 ## Why the timing is right
 

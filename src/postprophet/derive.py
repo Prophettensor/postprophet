@@ -33,19 +33,18 @@ _HASHTAG_HINT = re.compile(r"\bno hashtags?\b|\bhashtags?\b", re.I)
 
 def read_memory(memory_paths=None) -> str:
     """Concatenate agent memory files (MEMORY.md, USER.md, etc.) into one string.
-    memory_paths: list of paths; if None, look in common agent-home locations."""
+    memory_paths: list of paths; if None, resolve from real Hermes/agent layouts
+    (HERMES_HOME/memories/, ~/.hermes/memories/, ./AGENTS.md, ./CLAUDE.md)."""
     if memory_paths is None:
-        candidates = []
-        for home in (os.environ.get("HERMES_HOME", "~/.hermes"), "~/.hermes"):
-            base = os.path.expanduser(home)
-            candidates += [
-                os.path.join(base, "memories", "MEMORY.md"),
-                os.path.join(base, "memories", "USER.md"),
-            ]
-        memory_paths = candidates
+        from .connectors.agent_memory import _default_paths
+        memory_paths = _default_paths()
     parts = []
+    seen = set()
     for p in memory_paths:
         p = os.path.expanduser(p)
+        if p in seen:
+            continue
+        seen.add(p)
         if os.path.isfile(p):
             try:
                 with open(p, errors="ignore") as f:

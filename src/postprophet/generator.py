@@ -89,9 +89,15 @@ def _pick_idea_for(strategy, ideas, used_ideas):
     return None
 
 
-def build_draft_prompt(plan_item, vision, voice):
+def build_draft_prompt(plan_item, vision, voice, agent_memory=""):
     """Assemble the drafting instruction for one (strategy, lever) x idea. The
-    agent (LLM) produces the post text from this. Grounds in the seed facts."""
+    agent (LLM) produces the post text from this. Grounds in the seed facts.
+
+    agent_memory: the agent's own memory text. When present it is the authoritative
+    source for VOICE and VISION — the agent writes in its own voice and from its
+    own understanding, instead of a hand-authored config. This is the "the agent
+    should just know" path: no voice/vision config needed.
+    """
     sname, lever = plan_item["strategy"], plan_item["lever"]
     sdef = STRATEGIES[sname]
     lever_def = NETWORK_LEVERS[lever]
@@ -113,9 +119,21 @@ def build_draft_prompt(plan_item, vision, voice):
         p.append(f"  {i}. {l}")
     p.append(f"\nNETWORK TARGET: {lever_def['desc']}")
     p.append(f"  {lever_def['prompt_hint']}")
-    p.append(f"\nVOICE: {voice.tone}. Do NOT: {', '.join(voice.do_not)}. "
-             f"Max {voice.max_chars} chars.")
-    p.append("\nVISION (why it matters to the audience): "
-             f"{vision.positioning} — {vision.problem}")
+
+    # VOICE + VISION come from the agent's own memory when available — the agent
+    # knows how it talks and why its work matters better than any config field.
+    if agent_memory.strip():
+        p.append("\nYOUR VOICE AND CONTEXT (from your agent memory — write in this "
+                 "voice, honor these preferences, stay grounded in this understanding):")
+        for line in agent_memory.strip().splitlines()[:25]:
+            line = line.strip()
+            if line:
+                p.append(f"  - {line}")
+    else:
+        p.append(f"\nVOICE: {voice.tone}. Do NOT: {', '.join(voice.do_not)}. "
+                 f"Max {voice.max_chars} chars.")
+        p.append("\nVISION (why it matters to the audience): "
+                 f"{vision.positioning} — {vision.problem}")
+
     p.append("\nFORMAT: output ONLY the post text on its own line. No preamble.")
     return "\n".join(p)
