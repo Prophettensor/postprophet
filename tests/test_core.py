@@ -130,3 +130,19 @@ def test_publish_modes_valid_and_invalid():
     import pytest as _p
     with _p.raises(ValueError):
         AccountConfig(publish_mode="coach")  # old name rejected
+
+
+# ---------- empty-state onboarding ----------
+
+def test_empty_round_guides_user(tmp_path):
+    from postprophet.pipeline import Pipeline
+    from postprophet.config import InstanceConfig, LoopConfig, ConnectorConfig
+    cfg = InstanceConfig(
+        name="fresh", loop=LoopConfig(),
+        connectors=[ConnectorConfig(name="git", type="git", options={"repos": [str(tmp_path)]})],
+    )
+    pipe = Pipeline(cfg, str(tmp_path / "data"))
+    brief = pipe.round_brief()
+    assert "No content ideas yet" in brief
+    assert "configured connectors: git" in brief
+    assert "run 'round' again" in brief

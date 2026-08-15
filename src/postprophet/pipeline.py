@@ -122,6 +122,8 @@ class Pipeline:
         """Render a full drafting round for the agent: learning state + ranked
         ideas + plan. The agent drafts from this, in-session."""
         seeds = self.harvest()
+        if not seeds:
+            return self._empty_round_guide()
         ideas = self.ideas(seeds)
         plan = self.plan(ideas, n)
         return "\n\n".join([
@@ -130,6 +132,31 @@ class Pipeline:
             "=== GROUNDED IDEAS ===\n" + format_idea_brief(ideas),
             "=== GENERATION PLAN ===\n" + self._format_plan(plan),
         ])
+
+    def _empty_round_guide(self) -> str:
+        """Help message shown when no connectors produced any seeds yet. Guides a
+        new user to connect their stack before drafting — instead of silently
+        producing ungrounded (no-seed) candidates."""
+        conn_names = [c.name for c in self.config.connectors]
+        lines = [
+            f"BUILDER: {self.config.name}",
+            "",
+            "No content ideas yet — PostProphet found no seeds from your connectors.",
+            "",
+            "It drafts from REAL facts about what you're building, so it needs at "
+            "least one source connected. Check your config:",
+            "",
+            f"  configured connectors: {', '.join(conn_names) or 'none'}\n",
+            "Fix any of these:",
+            "  - git:   point 'repos' at a repo with recent commits (not an empty dir)",
+            "  - github: set 'repo' to owner/repo and GH_TOKEN/GITHUB_TOKEN in env",
+            "  - agent_output: point 'path' at a dir where your agents write files",
+            "  - rss:   add feed URLs for your market / competitors",
+            "",
+            "Once a connector returns at least one seed, run 'round' again and you'll",
+            "get ranked, grounded content ideas to draft from.",
+        ]
+        return "\n".join(lines)
 
     def _format_plan(self, plan):
         lines = []
