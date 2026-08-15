@@ -9,11 +9,11 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from content_agent.context import Seed, validate_seed
-from content_agent.config import VisionConfig, InstanceConfig
-from content_agent.ideas import surface_ideas, _fit_score
-from content_agent.learner import Learner
-from content_agent.reward import raw_reward, reward_per_impression
+from postprophet.context import Seed, validate_seed
+from postprophet.config import VisionConfig, InstanceConfig
+from postprophet.ideas import surface_ideas, _fit_score
+from postprophet.learner import Learner
+from postprophet.reward import raw_reward, reward_per_impression
 
 
 # ---------- reward ----------
@@ -50,13 +50,13 @@ def test_seed_contract_validates():
 
 def test_fit_source_affinity_and_avoid():
     vision = VisionConfig(
-        positioning="content agents that learn from real engagement",
+        positioning="postprophet content agents that learn from real engagement",
         problem="builders have no marketing arm",
         audience=["builders"],
         avoid=["gaming the algorithm"],
     )
-    ship = Seed(source="git:content-agent", kind="ship",
-                title="shipped content-agent framework")
+    ship = Seed(source="git:postprophet", kind="ship",
+                title="shipped postprophet framework")
     # source matches vision => high fit
     assert _fit_score(ship, vision)[0] >= 0.4
     # avoid topic (>=2 shared tokens with "gaming the algorithm") is floored
@@ -68,7 +68,7 @@ def test_fit_source_affinity_and_avoid():
 def test_surface_ideas_sorts_by_fit():
     vision = VisionConfig(positioning="content agents", problem="marketing for builders")
     seeds = [
-        Seed(source="git:content-agent", kind="ship", title="shipped agent"),
+        Seed(source="git:postprophet", kind="ship", title="shipped agent"),
         Seed(source="git:unrelated", kind="ship", title="totally different thing"),
     ]
     ideas = surface_ideas(seeds, vision, limit=5)
@@ -105,9 +105,9 @@ def test_learner_reweights_from_outcomes():
 # ---------- pipeline pairing ----------
 
 def test_plan_pairs_strategy_with_idea(tmp_path):
-    from content_agent.config import LoopConfig
+    from postprophet.config import LoopConfig
     cfg = InstanceConfig(name="t", loop=LoopConfig())
-    from content_agent.generator import choose_generation_plan
+    from postprophet.generator import choose_generation_plan
     l = Learner(str(tmp_path))
     ideas = [
         {"seed": Seed(source="git:a", kind="finding", title="found X").to_dict(),

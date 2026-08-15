@@ -25,7 +25,7 @@ A connector is any callable with signature:
     collect() -> list[dict]   (list of seed dicts matching the contract)
 
 or a class with a collect() method. The product ships reference connectors in
-content_agent.connectors; builders add their own for stack-specific sources.
+postprophet.connectors; builders add their own for stack-specific sources.
 """
 
 from __future__ import annotations

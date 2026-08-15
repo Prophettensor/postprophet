@@ -60,7 +60,7 @@ def _fit_score(seed: Seed, vision: VisionConfig) -> tuple[float, str]:
 
     Combines two signals:
       1. source-affinity: does the seed's source/repo relate to the vision domain?
-         (e.g. a seed from 'content-agent' repo against a vision about content
+         (e.g. a seed from 'postprophet' repo against a vision about content
          agents). Strongest signal a builder cares.
       2. keyword overlap: does the seed text literally mention vision terms?
          Softened so short commit titles aren't punished.

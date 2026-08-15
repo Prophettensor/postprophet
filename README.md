@@ -1,9 +1,9 @@
-# Content Agent
+# PostProphet
 
 **The marketing layer for what you ship.**
 
 Builders and coding agents ship all day. Nobody markets the output — the work
-disappears into commits and merge requests. Content Agent takes the continuous
+disappears into commits and merge requests. PostProphet takes the continuous
 stream of what your agents produce and turns it into a publishing presence that
 learns from real engagement.
 
@@ -18,12 +18,12 @@ measured results — not vibes.
 
 ## Build vs use (the design split)
 
-- **The product (this package)** is a stack-agnostic framework: connectors, an
-  idea layer, a generation planner, a publisher, and a learner. It doesn't care
-  whose stack or what you ship.
+- **The product (this repo)** is a stack-agnostic framework: connectors, an idea
+  layer, a generation planner, a publisher, and a learner. It doesn't care whose
+  stack or what you ship.
 - **A builder instance** is ONE config file wiring your stack connectors, your
   vision/market profile, your account, and your voice. That's "using the
-  product." Everything in `instances/` is use; `src/content_agent/` is product.
+  product."
 
 A builder adopting this never touches the framework — they copy
 `example-config.yaml`, fill in their stack and vision, and run the loop.
@@ -66,16 +66,15 @@ its own drafts with an LLM.
 
 ```bash
 pip install -e .
-# or just add src/ to your path
 ```
 
 ## Use
 
 ```bash
-content-agent init                    # write an example config
-content-agent round --config your.yaml --top 5   # drafting brief (LLM step follows)
-content-agent measure --config your.yaml         # read outcomes + retrain (cron)
-content-agent ideas --config your.yaml           # see surfaced ideas only
+postprophet init                       # write an example config
+postprophet round --config your.yaml --top 5   # drafting brief (LLM step follows)
+postprophet measure --config your.yaml         # read outcomes + retrain (cron)
+postprophet ideas --config your.yaml           # see surfaced ideas only
 ```
 
 - `round` is the interactive step (needs an LLM — run it when you want drafts).
@@ -114,7 +113,7 @@ the playbook is a prior, not a rule.
 ## Architecture
 
 ```
-src/content_agent/
+src/postprophet/
   context.py     seed contract + validation
   config.py      builder-instance config schema
   connectors/    git, agent_output, webhook
@@ -127,13 +126,6 @@ src/content_agent/
   cli.py         round / measure / ideas / init
 ```
 
-## The PostProphet dogfood instance
-
-`instances/postprophet.yaml` is Buck's live instance — it markets the product
-itself, grounded in the product's own shipping. Meta and self-reinforcing: a
-content agent marketing the content-agent product, exercised exactly as a paying
-builder would.
-
 ## License
 
-Apache-2.0
+MIT

@@ -1,4 +1,4 @@
-"""CLI entrypoint for the content-agent framework.
+"""CLI entrypoint for the postprophet framework.
 
 Commands:
     round   [--config PATH] [--top N]   produce a drafting brief (in-session, LLM step follows)
@@ -22,21 +22,21 @@ from .config import write_example_config
 
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
-    parser = argparse.ArgumentParser(prog="content-agent", description=__doc__)
+    parser = argparse.ArgumentParser(prog="postprophet", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_round = sub.add_parser("round", help="produce a drafting brief")
-    p_round.add_argument("--config", default="content-agent.yaml")
+    p_round.add_argument("--config", default="postprophet.yaml")
     p_round.add_argument("--top", type=int, default=5)
 
     p_measure = sub.add_parser("measure", help="read outcomes + retrain (cron)")
-    p_measure.add_argument("--config", default="content-agent.yaml")
+    p_measure.add_argument("--config", default="postprophet.yaml")
 
     p_ideas = sub.add_parser("ideas", help="show surfaced ideas only")
-    p_ideas.add_argument("--config", default="content-agent.yaml")
+    p_ideas.add_argument("--config", default="postprophet.yaml")
 
     p_init = sub.add_parser("init", help="write an example config")
-    p_init.add_argument("--config", default="content-agent.yaml")
+    p_init.add_argument("--config", default="postprophet.yaml")
 
     args = parser.parse_args(argv)
 

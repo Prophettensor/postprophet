@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PostProphet — the marketing layer for what you ship</title>
+<meta name="description" content="PostProphet watches what you build, turns it into content engineered toward what X ranks highest, posts it, and learns from real engagement. Open source.">
+<meta name="theme-color" content="#0a0a0a" id="theme-color-meta">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script>
+(function(){
+  var t=localStorage.getItem('postprophet-theme');
+  if(!t)t='dark';
+  var meta=document.getElementById('theme-color-meta');
+  if(meta)meta.content=t==='dark'?'#0a0a0a':'#faf8f5';
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
+<style>
+:root {
+  --bg:#faf8f5; --bg-card:#fff; --bg-elevated:#f5f2ee;
+  --text:#1a1a1a; --text-secondary:#555; --text-tertiary:#999;
+  --border:#e8e4df; --border-strong:#d4cfc8;
+  --accent:#4338ca; --accent-hover:#3730a3; --accent-soft:#eef2ff;
+}
+[data-theme="dark"] {
+  --bg:#0a0a0a; --bg-card:#161616; --bg-elevated:#1c1c1c;
+  --text:#f0ece4; --text-secondary:#a8a39a; --text-tertiary:#6a655e;
+  --border:#262626; --border-strong:#363636;
+  --accent:#818cf8; --accent-hover:#6366f1; --accent-soft:rgba(129,140,248,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;transition:background .2s,color .2s}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+nav .inner{max-width:760px;margin:0 auto;padding:14px 24px;display:flex;justify-content:space-between;align-items:center}
+.logo{text-decoration:none;color:var(--text);font-weight:800;font-size:1.05em;letter-spacing:-.02em}
+nav .links{display:flex;gap:20px;align-items:center}
+nav .links a{color:var(--text-secondary);text-decoration:none;font-size:.92em;font-weight:500}
+nav .links a:hover{color:var(--text)}
+.icon-btn{background:none;border:none;color:var(--text);cursor:pointer;padding:6px;border-radius:8px;display:flex;align-items:center;opacity:.6}
+.icon-btn:hover{background:var(--bg-elevated);opacity:1}
+
+.container{max-width:760px;margin:0 auto;padding:0 24px}
+
+/* HERO */
+.hero{padding:150px 24px 70px;max-width:760px;margin:0 auto}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;font-size:.82em;font-weight:600;color:var(--text-secondary);border:1px solid var(--border);padding:6px 12px;border-radius:100px;margin-bottom:28px}
+.hero h1{font-size:clamp(2.4rem,6vw,3.6rem);font-weight:900;letter-spacing:-.03em;line-height:1.05;margin-bottom:22px}
+.hero h1 .accent{color:var(--accent)}
+.hero h1 .serif-em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+.hero p{font-size:1.12rem;color:var(--text-secondary);max-width:560px;margin-bottom:34px}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-block;padding:13px 22px;border-radius:10px;font-weight:600;font-size:.95rem;text-decoration:none;transition:background .15s,color .15s,border-color .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.btn-ghost{border:1px solid var(--border-strong);color:var(--text)}
+.btn-ghost:hover{background:var(--bg-elevated)}
+
+/* pipeline visual */
+.pipeline{max-width:760px;margin:0 auto;padding:20px 24px 80px}
+.pipe-step{display:flex;align-items:baseline;gap:14px;padding:14px 0;border-top:1px solid var(--border)}
+.pipe-step:last-child{border-bottom:1px solid var(--border)}
+.pipe-num{font-family:'Instrument Serif',serif;font-style:italic;color:var(--accent);font-size:1.05rem;min-width:26px}
+.pipe-name{font-weight:700;min-width:96px}
+.pipe-desc{color:var(--text-secondary);font-size:.94rem}
+.pipe-tag{margin-left:auto;font-size:.72rem;font-weight:600;color:var(--text-tertiary);border:1px solid var(--border);padding:3px 8px;border-radius:100px;white-space:nowrap}
+
+/* sections */
+.section{padding:64px 0}
+.section-title{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+.section-sub{color:var(--text-secondary);margin-bottom:40px;font-size:1.02rem}
+.how-grid{display:grid;gap:0}
+.how-step{display:flex;gap:18px;padding:22px 0;border-top:1px solid var(--border)}
+.how-step:last-child{border-bottom:1px solid var(--border)}
+.how-step .num{font-family:'Instrument Serif',serif;font-style:italic;color:var(--accent);font-size:1.2rem;min-width:30px}
+.how-step h3{font-weight:700;margin-bottom:6px;font-size:1.05rem}
+.how-step p{color:var(--text-secondary);font-size:.95rem}
+
+/* strategy tags */
+.strats{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.strat{border:1px solid var(--border-strong);padding:5px 12px;border-radius:100px;font-size:.82rem;font-weight:600;color:var(--text)}
+
+/* cta + footer */
+.cta-section{text-align:center;padding:80px 24px;border-top:1px solid var(--border)}
+.cta-section h2{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:900;letter-spacing:-.02em;margin-bottom:14px}
+.cta-section p{color:var(--text-secondary);margin-bottom:24px}
+footer{border-top:1px solid var(--border);padding:40px 24px}
+footer .inner{max-width:760px;margin:0 auto}
+footer .brand{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px}
+footer .brand b{font-weight:800;letter-spacing:-.02em}
+footer .brand p{color:var(--text-tertiary);font-size:.9rem}
+footer .bottom{max-width:760px;margin:0 auto;color:var(--text-tertiary);font-size:.8rem;border-top:1px solid var(--border);padding-top:20px}
+
+@media (max-width:560px){
+  .pipe-tag{display:none}
+  .pipe-desc{flex:1}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <a href="/postprophet/" class="logo">PostProphet</a>
+    <div class="links">
+      <a href="#loop">The loop</a>
+      <a href="#why">Why now</a>
+      <button class="icon-btn" onclick="toggleTheme()" id="themeBtn"></button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+    For builders &amp; coding agents
+  </div>
+  <h1>The marketing layer<br>for <span class="accent">what you ship.</span></h1>
+  <p>You ship all day. Nobody markets the output. PostProphet watches what you build, turns it into content engineered toward what X ranks highest, posts it, and gets smarter from real engagement.</p>
+  <div class="btns">
+    <a href="#loop" class="btn btn-primary">How the loop works</a>
+    <a href="https://github.com/Prophettensor/postprophet" class="btn btn-ghost">GitHub</a>
+  </div>
+</div>
+
+<!-- THE LOOP -->
+<div class="container" id="loop">
+  <div class="section">
+    <h2 class="section-title">The loop</h2>
+    <p class="section-sub">Connect to your agent stack. Ideas surface. Content is generated, posted, and learned from performance.</p>
+    <div class="pipeline">
+      <div class="pipe-step"><span class="pipe-num">1</span><span class="pipe-name">Harvest</span><span class="pipe-desc">Connectors pull grounded "seeds" from your stack — git commits, research outputs, customer signals, ecosystem events.</span><span class="pipe-tag">no LLM</span></div>
+      <div class="pipe-step"><span class="pipe-num">2</span><span class="pipe-name">Ideas</span><span class="pipe-desc">Seeds are framed against your vision and market and ranked into content ideas. What shipped, why it matters, to whom.</span><span class="pipe-tag">no LLM</span></div>
+      <div class="pipe-step"><span class="pipe-num">3</span><span class="pipe-name">Plan</span><span class="pipe-desc">Winning strategies are paired with the best-fit ideas by a bandit that learns what works for your audience.</span><span class="pipe-tag">no LLM</span></div>
+      <div class="pipe-step"><span class="pipe-num">4</span><span class="pipe-name">Draft</span><span class="pipe-desc">An agent turns each idea and strategy into a post, grounded only in your real facts. Coach or auto.</span><span class="pipe-tag">LLM</span></div>
+      <div class="pipe-step"><span class="pipe-num">5</span><span class="pipe-name">Publish</span><span class="pipe-desc">You review and post (coach), or the agent posts on schedule (auto).</span><span class="pipe-tag">you choose</span></div>
+      <div class="pipe-step"><span class="pipe-num">6</span><span class="pipe-name">Learn</span><span class="pipe-desc">Real engagement reweights the strategies. The playbook adapts to what actually works — not vibes.</span><span class="pipe-tag">no LLM</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- WHY NOW -->
+<div class="container" id="why">
+  <div class="section">
+    <h2 class="section-title">Why now</h2>
+    <p class="section-sub">X open-sourced its For You feed ranking algorithm. That gave content agents a real objective.</p>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="num">1</div>
+        <div>
+          <h3>A real reward function</h3>
+          <p>X's shipped weights tell us what it values: reply 5.0 (→20 mutual), quote 5.0, share 2.0, follow 4.0, favorite 0.5. PostProphet engineers drafts toward those actions.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="num">2</div>
+        <div>
+          <h3>Learns from real results</h3>
+          <p>The reward comes from actual post metrics, not a model scoring its own work. Non-circular: no vibes, no self-ratings. What performs is what wins.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="num">3</div>
+        <div>
+          <h3>Understands your vision</h3>
+          <p>Not a generic bot. PostProphet connects to your stack, reads your positioning and market, and surfaces ideas about what you're actually building.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STRATEGIES -->
+<div class="container">
+  <div class="section">
+    <h2 class="section-title">Strategies</h2>
+    <p class="section-sub">Each draft is engineered toward a high-value action, from X's weights. The learner decides which to favor.</p>
+    <div class="strats">
+      <span class="strat">reply_starter</span>
+      <span class="strat">quote_worthy</span>
+      <span class="strat">share_worthy</span>
+      <span class="strat">dwell_holder</span>
+      <span class="strat">follow_bait</span>
+    </div>
+    <p style="color:var(--text-secondary);font-size:.95rem;margin-top:18px">Each × <b style="color:var(--text)">mutual</b> (your engaged audience) or <b style="color:var(--text)">out_of_network</b> (new readers — the way you grow).</p>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+  <h2>Ship. And let the work<br>do the talking.</h2>
+  <p>Open source. MIT licensed.</p>
+  <a href="https://github.com/Prophettensor/postprophet" class="btn btn-primary">GitHub</a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="inner">
+    <div class="brand">
+      <div><b>PostProphet</b></div>
+      <p>The marketing layer for what you ship.</p>
+    </div>
+  </div>
+  <div class="bottom">PostProphet</div>
+</footer>
+
+<script>
+function getTheme(){return localStorage.getItem('postprophet-theme')||'dark'}
+function applyTheme(){var t=getTheme();document.documentElement.setAttribute('data-theme',t);var btn=document.getElementById('themeBtn');if(btn)btn.innerHTML=t==='dark'?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'}
+function toggleTheme(){var current=document.documentElement.getAttribute('data-theme')||'dark';var next=current==='dark'?'light':'dark';localStorage.setItem('postprophet-theme',next);applyTheme()}
+applyTheme();
+</script>
+
+</body>
+</html>
