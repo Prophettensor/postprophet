@@ -10,10 +10,11 @@ from .agent_output import AgentOutputConnector
 from .webhook import WebhookConnector
 from .github import GitHubConnector
 from .rss import RssConnector
+from .agent_memory import AgentMemoryConnector
 
 __all__ = [
     "GitConnector", "AgentOutputConnector", "WebhookConnector",
-    "GitHubConnector", "RssConnector",
+    "GitHubConnector", "RssConnector", "AgentMemoryConnector",
 ]
 
 
@@ -33,6 +34,8 @@ def build_connector(cfg):
             return GitHubConnector(**cfg.options)
         if cfg.type == "rss":
             return RssConnector(**cfg.options)
+        if cfg.type == "agent_memory":
+            return AgentMemoryConnector(**cfg.options)
     except TypeError:
         pass
     return None

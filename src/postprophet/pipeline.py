@@ -19,7 +19,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from .config import load_config, InstanceConfig
+from .config import load_config, InstanceConfig, _merge_vision, _merge_voice
 from .context import normalize, Seed
 from .ideas import surface_ideas, format_idea_brief
 from .learner import Learner
@@ -35,6 +35,27 @@ class Pipeline:
         os.makedirs(data_dir, exist_ok=True)
         self.learner = Learner(data_dir)
         self.tracker = Tracker(data_dir)
+        # In "just connect your agent" mode, derive vision/voice from agent memory
+        # and the connected repos instead of requiring them hand-authored.
+        if config.loop.derive:
+            self._apply_derived_context()
+
+    def _apply_derived_context(self):
+        from . import derive
+        repo_paths = self._repo_paths()
+        vision, voic, memory = derive.derive(repo_paths=repo_paths)
+        # merge: derived fills gaps, explicit config values win
+        self.config.vision = _merge_vision(self.config.vision, vision)
+        self.config.voice = _merge_voice(self.config.voice, voic)
+
+    def _repo_paths(self):
+        paths = []
+        for c in self.config.connectors:
+            opts = c.options or {}
+            if c.type == "git" and opts.get("repos"):
+                r = opts["repos"]
+                paths.extend(r if isinstance(r, list) else [r])
+        return paths
 
     # ---- lifecycle ----
     @classmethod

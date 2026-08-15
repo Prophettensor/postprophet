@@ -76,6 +76,9 @@ class LoopConfig:
     strategies: List[str] = field(default_factory=list)  # empty = all
     # how often the tracker (no_agent cron) resolves outcomes
     measure_interval_hours: int = 12
+    # if True, derive vision/voice from agent memory + connected repos instead of
+    # requiring them in the config (the "just connect your agent" mode)
+    derive: bool = False
 
 
 @dataclass
@@ -110,6 +113,30 @@ def load_config(path: str) -> InstanceConfig:
     return InstanceConfig.from_dict(raw)
 
 
+def _merge_vision(base: VisionConfig, derived: VisionConfig) -> VisionConfig:
+    """Merge derived vision into the base; explicit base values win, derived fill
+    gaps. Used by derive mode so a hand-authored config is never overwritten."""
+    return VisionConfig(
+        positioning=base.positioning or derived.positioning,
+        problem=base.problem or derived.problem,
+        market=base.market or derived.market,
+        audience=base.audience or derived.audience,
+        competitors=base.competitors or derived.competitors,
+        avoid=base.avoid or derived.avoid,
+    )
+
+
+def _merge_voice(base: VoiceConfig, derived: VoiceConfig) -> VoiceConfig:
+    """Merge derived voice into the base; explicit base values win, derived fill
+    gaps (e.g. memory saying 'no emojis' is only added if base doesn't already
+    forbid it)."""
+    return VoiceConfig(
+        tone=base.tone if base.tone != "direct" else (derived.tone or base.tone),
+        do_not=sorted(set(base.do_not) | set(derived.do_not)),
+        max_chars=base.max_chars or derived.max_chars,
+    )
+
+
 def write_example_config(path: str):
     """Emit a documented example config a builder can copy and edit."""
     example = {
@@ -141,6 +168,7 @@ def write_example_config(path: str):
             "candidates_per_round": 5,
             "strategies": [],
             "measure_interval_hours": 12,
+            "derive": True,
         },
     }
     with open(path, "w") as f:

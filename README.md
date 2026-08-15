@@ -26,7 +26,34 @@ measured results — not vibes.
   product."
 
 A builder adopting this never touches the framework — they copy
-`example-config.yaml`, fill in their stack and vision, and run the loop.
+`example-config.yaml`, point it at their agent, and run the loop.
+
+## Setup is just "connect your agent"
+
+You don't write a vision statement or describe your voice — your agent already
+knows them. With `loop.derive: true` (the default), PostProphet reads your
+vision, positioning, problem, and voice straight from your agent's own memory
+(`~/.hermes/memories/`, `./AGENTS.md`, `./CLAUDE.md`) and the READMEs of the
+repos you connect. Hand-authored config is optional and wins where set.
+
+So a minimal config is just:
+
+```yaml
+connectors:
+  - name: git
+    type: git
+    options: { repos: ["."] }
+  - name: memory
+    type: agent_memory
+account:
+  handle: your_handle
+  publish_mode: manual
+loop:
+  derive: true
+```
+
+That's it. Connect your agent, and PostProphet knows what you're building, why,
+and how you want it to sound.
 
 ## Why the timing is right
 
@@ -93,6 +120,8 @@ The product connects to any stack through a small, plain "seed" contract:
 
 Shipped connectors:
 
+- **agent_memory** — reads your agent's own memory files (MEMORY.md, USER.md,
+  AGENTS.md, CLAUDE.md) as `finding` seeds — the "connect your agent" entry point.
 - **git** — emits `ship` seeds from recent commits (every builder has this).
 - **github** — emits `ship`/`milestone` seeds from merged PRs and releases in a repo.
 - **agent_output** — reads files any agent drops (research findings, customer
@@ -121,7 +150,8 @@ the playbook is a prior, not a rule.
 src/postprophet/
   context.py     seed contract + validation
   config.py      builder-instance config schema
-  connectors/    git, github, agent_output, rss, webhook
+  derive.py      auto-extract vision/voice from agent memory + READMEs
+  connectors/    agent_memory, git, github, agent_output, rss, webhook
   ideas.py       surface + rank ideas against vision/market
   generator.py   plan strategies x ideas, build draft prompts
   learner.py     bandit over strategies, rewarded by real outcomes
