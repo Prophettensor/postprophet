@@ -8,7 +8,7 @@ defines that file. Everything the pipeline needs is here:
     vision       positioning, audience, competitors, problem  (why it matters)
     account      platform + handle for the publishing/measurement side
     voice        content constraints (topics to cover or avoid, tone)
-    loop         publish mode (coach/auto), strategy mix, cadence
+    loop         publish mode (manual/approve/auto), strategy mix, cadence
 
 The config is declarative so a builder can wire up their stack without touching
 code. Connector configs are passed to the matching connector's init; unknown
@@ -58,8 +58,16 @@ class VoiceConfig:
 class AccountConfig:
     platform: str = "x"
     handle: str = ""
-    # publish mode: "coach" (human reviews/posts) or "auto" (agent posts)
-    publish_mode: str = "coach"
+    # publish_mode: "manual" (agent drafts, human posts by hand),
+    #               "approve" (agent drafts, human approves, then auto-posts),
+    #               "auto" (agent drafts and posts fully autonomously)
+    publish_mode: str = "manual"
+
+    def __post_init__(self):
+        valid = {"manual", "approve", "auto"}
+        if self.publish_mode not in valid:
+            raise ValueError(f"publish_mode must be one of {sorted(valid)}, "
+                             f"got '{self.publish_mode}'")
 
 
 @dataclass
@@ -127,7 +135,7 @@ def write_example_config(path: str):
         "account": {
             "platform": "x",
             "handle": "your_handle",
-            "publish_mode": "coach",
+            "publish_mode": "manual",
         },
         "loop": {
             "candidates_per_round": 5,

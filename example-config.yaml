@@ -47,7 +47,9 @@ voice:
 account:
   platform: x
   handle: your_handle
-  publish_mode: coach           # coach = human reviews/posts; auto = agent posts
+  publish_mode: manual          # manual = you post by hand
+                                # approve = you approve, then auto-posts
+                                # auto = agent posts on schedule
 
 # --- loop tuning ---
 loop:

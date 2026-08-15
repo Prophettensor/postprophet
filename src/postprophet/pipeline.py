@@ -5,7 +5,7 @@ Pipeline — the framework's public API. Coordinates the closed loop:
     ideas()      surface + rank ideas against vision     (zero LLM)
     plan()       pair strategies with ideas (bandit)     (zero LLM)
     draft()      [LLM step] turn a plan into post text   (in-session only)
-    publish()    post (coach = human, auto = agent)       (needs auth)
+    publish()    post — manual (human), approve (human approve then auto), or auto (needs auth)
     measure()    read real outcomes + retrain bandit      (no_agent cron)
     learn()      alias for measure()
 

@@ -51,7 +51,8 @@ PLAN      pair winning strategies with best-fit ideas (bandit)  [zero LLM]
         v
 DRAFT     agent turns idea+strategy into post text              [LLM, in-session]
         v
-PUBLISH   post (coach = human reviews; auto = agent posts)
+PUBLISH   post — manual (you post by hand), approve (you approve, then auto-post),
+          or auto (agent posts on schedule)
         v
 LEARN     real engagement reweights strategies                  [zero-LLM cron]
         v

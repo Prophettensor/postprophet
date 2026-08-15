@@ -119,3 +119,14 @@ def test_plan_pairs_strategy_with_idea(tmp_path):
     assert len(plan) >= 1
     for item in plan:
         assert "strategy" in item and "idea" in item
+
+
+# ---------- publish modes ----------
+
+def test_publish_modes_valid_and_invalid():
+    from postprophet.config import AccountConfig
+    for mode in ("manual", "approve", "auto"):
+        assert AccountConfig(publish_mode=mode).publish_mode == mode
+    import pytest as _p
+    with _p.raises(ValueError):
+        AccountConfig(publish_mode="coach")  # old name rejected
