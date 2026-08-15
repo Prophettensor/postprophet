@@ -89,3 +89,23 @@ def test_internal_memory_seeds_not_surfaced_as_ideas(tmp_path):
     titles = [i["seed"]["title"] for i in ideas]
     assert all("NO emojis" not in t for t in titles)
     assert any("shipped v2" in t for t in titles)
+
+
+def test_guardrails_always_in_prompt_even_with_memory(tmp_path):
+    from postprophet.generator import build_draft_prompt
+    from postprophet.config import VisionConfig, VoiceConfig
+
+    vision = VisionConfig(avoid=["never claim reach guarantees",
+                                 "never invent metrics"])
+    prompt = build_draft_prompt(
+        {"strategy": "reply_starter", "lever": "mutual",
+         "idea": {"seed": {"title": "shipped", "detail": ""},
+                  "primary_angle": "announcement", "angles": ["announcement"]}},
+        vision, VoiceConfig(),
+        agent_memory="NO emojis.\ndry tone.\n",
+    )
+    assert "GUARDRAILS" in prompt
+    assert "never claim reach guarantees" in prompt
+    assert "never invent metrics" in prompt
+    # voice still from memory
+    assert "NO emojis" in prompt

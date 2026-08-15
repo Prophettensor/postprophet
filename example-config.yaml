@@ -1,45 +1,27 @@
-# content-agent builder instance — EXAMPLE (copy and edit)
-# This ONE file defines "using the product": your connectors, account, and loop.
-# The framework (src/postprophet) is shared and unchanged.
+# PostProphet builder instance — EXAMPLE (copy and edit)
 #
-# MINIMAL MODE (recommended): set loop.derive: true and PostProphet reads your
-# vision/positioning/voice from your agent's own memory + the repos you connect.
-# You only choose connectors and your account. No need to hand-write vision,
-# problem, or voice — the agent already knows them.
+# The whole point: connect your agent, and it knows what to say and how to say it.
+# You do NOT write voice, positioning, or problem statements — the agent already
+# has them in its memory and the repos you connect. Config is just: which sources
+# to draw from, which account to post to, and (optionally) what to never claim.
 #
 # No secrets here. Auth (e.g. xurl) is read from your credentials store/env.
 
 name: my-build
 
 # --- connect to your agent stack ---
-# Each connector pulls discrete facts ("seeds") from a source in your stack.
-# Shipped types: git, github, agent_output, rss, webhook, agent_memory.
-# agent_memory reads your agent's own memory files (~/.hermes/memories/,
-# ./AGENTS.md, ./CLAUDE.md) — this is the "just connect your agent" entry point.
+# Each connector pulls discrete facts ("seeds"). Shipped types:
+#   git, github, agent_output, rss, webhook, agent_memory
+# agent_memory reads your agent's own memory (MEMORY.md, USER.md, AGENTS.md,
+# CLAUDE.md) and supplies the voice/vision the drafting step writes in.
 connectors:
   - name: git
     type: git
     options:
-      repos: ["."]              # paths to your repos (feed the idea layer)
+      repos: ["."]              # paths to your repos (what you're building)
   - name: memory
-    type: agent_memory          # auto-reads your agent's memory for vision/voice
+    type: agent_memory          # the agent's own voice/vision/memory
     options: {}
-
-# --- optional: hand-authored vision (overrides derive mode where set) ---
-# If loop.derive is true these are optional — leave blank to auto-derive.
-vision:
-  positioning: ""               # auto-derived from your READMEs if empty
-  audience: []                  # auto-derived from memory if empty
-  competitors: []
-  problem: ""                   # auto-derived from memory if empty
-  market: ""
-  avoid: []                     # topics/claims content must never make
-
-# --- optional: voice (derive mode fills from memory, e.g. "no emojis") ---
-voice:
-  tone: direct
-  do_not: []
-  max_chars: 280
 
 # --- publishing account ---
 account:
@@ -54,24 +36,19 @@ loop:
   candidates_per_round: 5
   strategies: []                # empty = use all strategies
   measure_interval_hours: 12    # how often the no_agent cron resolves outcomes
-  derive: true                  # derive vision/voice from your agent + repos
+  derive: true                  # voice/vision come from the agent itself
+  # guardrails: things content must NEVER claim or say. This is the only content
+  # input you should ever need — it's the negative (safety), not style.
+  guardrails:
+    - "do not claim reach or engagement guarantees"
+    - "do not invent metrics, numbers, or customer quotes"
 
 # --- optional: multi-project (one agent, many products) ---
-# If you build several things and want to market them separately, declare each
-# as a Project. Each gets its own repos/agents/vision. Round with --project NAME.
-# Vision is per-project (from each project's README); voice stays global.
-#
-#   - market one of many:     just declare that one project
-#   - market several:         declare each, run 'round --project <each>'
-#   - some yes / some no:     declare only the ones you market
-#   - many agents, one project: list all their agent_output dirs under one project
+# Declare each thing you market as a Project. Round with --project NAME.
+# Vision comes from each project's own README; voice stays global (the agent's).
 projects:
   - name: my-product
     repos:
       - "."
     # agent_outputs:        # optional: other agents feeding THIS project
-    #   - /path/to/research-agent-output
     # feeds:                # optional: market feeds for this project
-    #   - https://rss.com/competitor-blog
-    # positioning: ""       # optional override; derived from repos if empty
-

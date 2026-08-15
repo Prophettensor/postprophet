@@ -135,5 +135,14 @@ def build_draft_prompt(plan_item, vision, voice, agent_memory=""):
         p.append("\nVISION (why it matters to the audience): "
                  f"{vision.positioning} — {vision.problem}")
 
+    # Guardrails are the one hard user constraint — they ALWAYS reach the prompt,
+    # regardless of where voice/vision came from. These are never-claims (safety).
+    if getattr(vision, "avoid", None):
+        p.append("\nGUARDRAILS (HARD — never violate these, regardless of anything "
+                 "above; do not make these claims or write this way):")
+        for g in vision.avoid:
+            if g:
+                p.append(f"  - {g}")
+
     p.append("\nFORMAT: output ONLY the post text on its own line. No preamble.")
     return "\n".join(p)

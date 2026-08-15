@@ -79,6 +79,11 @@ class LoopConfig:
     # if True, derive vision/voice from agent memory + connected repos instead of
     # requiring them in the config (the "just connect your agent" mode)
     derive: bool = False
+    # guardrails: short list of things content must NEVER claim or say. This is
+    # the one content input that can't be derived — it's the negative (safety),
+    # not style. Everything else (voice, positioning, problem) comes from the
+    # agent itself. Optional — most agents need an empty list.
+    guardrails: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -176,28 +181,26 @@ def _merge_voice(base: VoiceConfig, derived: VoiceConfig) -> VoiceConfig:
     )
 
 
+def _merge_guardrails(existing: list, guardrails: list) -> list:
+    """Guardrails always win: they are the user's hard negative constraints. Merge
+    them into any existing avoid list, deduped, preserving order."""
+    merged = list(existing or [])
+    for g in (guardrails or []):
+        if g and g not in merged:
+            merged.append(g)
+    return merged
+
+
 def write_example_config(path: str):
-    """Emit a documented example config a builder can copy and edit."""
+    """Emit a documented example config a builder can copy and edit. Voice and
+    vision are intentionally absent — the agent knows them; only guardrails (the
+    negative constraints) are a legitimate user input."""
     example = {
         "name": "my-build",
         "connectors": [
             {"name": "git", "type": "git", "options": {"repos": ["."]}},
-            {"name": "research", "type": "agent_output",
-             "options": {"path": "agent-outputs/", "exts": [".json", ".md"]}},
+            {"name": "memory", "type": "agent_memory", "options": {}},
         ],
-        "vision": {
-            "positioning": "We build X for Y so that Z.",
-            "audience": ["builder personas"],
-            "competitors": ["names"],
-            "problem": "the problem we solve",
-            "market": "one-line market description",
-            "avoid": ["claims we must never make"],
-        },
-        "voice": {
-            "tone": "direct",
-            "do_not": ["emojis", "hashtags"],
-            "max_chars": 280,
-        },
         "account": {
             "platform": "x",
             "handle": "your_handle",
@@ -208,6 +211,10 @@ def write_example_config(path: str):
             "strategies": [],
             "measure_interval_hours": 12,
             "derive": True,
+            "guardrails": [
+                "do not claim reach or engagement guarantees",
+                "do not invent metrics, numbers, or customer quotes",
+            ],
         },
     }
     with open(path, "w") as f:

@@ -20,7 +20,7 @@ import os
 from datetime import datetime, timezone
 
 from .config import (load_config, InstanceConfig, ConnectorConfig, VisionConfig,
-                     _merge_vision, _merge_voice)
+                     _merge_vision, _merge_voice, _merge_guardrails)
 from .context import normalize, Seed
 from .ideas import surface_ideas, format_idea_brief
 from .learner import Learner
@@ -45,6 +45,10 @@ class Pipeline:
         from . import derive
         repo_paths = self._repo_paths()
         vision, voic, memory = derive.derive(repo_paths=repo_paths)
+        # guardrails are the one user-supplied content input; they override/merge
+        # into vision.avoid (the negative constraints) and always win.
+        vision.avoid = _merge_guardrails(self.config.vision.avoid,
+                                         self.config.loop.guardrails)
         # merge: derived fills gaps, explicit config values win
         self.config.vision = _merge_vision(self.config.vision, vision)
         self.config.voice = _merge_voice(self.config.voice, voic)
@@ -102,7 +106,8 @@ class Pipeline:
             market=proj.market,
             audience=self.config.vision.audience,
             competitors=self.config.vision.competitors,
-            avoid=self.config.vision.avoid,
+            avoid=_merge_guardrails(self.config.vision.avoid,
+                                    self.config.loop.guardrails),
         )
         if not (vision.positioning or vision.problem) and proj.repos:
             from . import derive
