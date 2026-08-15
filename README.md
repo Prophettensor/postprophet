@@ -93,12 +93,16 @@ The product connects to any stack through a small, plain "seed" contract:
 Shipped connectors:
 
 - **git** — emits `ship` seeds from recent commits (every builder has this).
+- **github** — emits `ship`/`milestone` seeds from merged PRs and releases in a repo.
 - **agent_output** — reads files any agent drops (research findings, customer
   logs, ecosystem monitors) as `finding`/`signal` seeds.
+- **rss** — emits `signal`/`event` seeds from feeds — competitor blogs, ecosystem
+  announcements, news. The "understand your market" input.
 - **webhook** — a tiny local HTTP endpoint so any agent can POST a seed.
 
 Builders write their own thin adapter for stack-specific sources — it's a small
-callable returning a list of seed dicts. No framework changes needed.
+callable returning a list of seed dicts. No framework changes needed. See
+`docs/CONNECTORS.md` for the connector-authoring guide.
 
 ## Strategies (the playbook)
 
@@ -116,7 +120,7 @@ the playbook is a prior, not a rule.
 src/postprophet/
   context.py     seed contract + validation
   config.py      builder-instance config schema
-  connectors/    git, agent_output, webhook
+  connectors/    git, github, agent_output, rss, webhook
   ideas.py       surface + rank ideas against vision/market
   generator.py   plan strategies x ideas, build draft prompts
   learner.py     bandit over strategies, rewarded by real outcomes

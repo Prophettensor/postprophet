@@ -8,8 +8,13 @@ specific connector.
 from .git import GitConnector
 from .agent_output import AgentOutputConnector
 from .webhook import WebhookConnector
+from .github import GitHubConnector
+from .rss import RssConnector
 
-__all__ = ["GitConnector", "AgentOutputConnector", "WebhookConnector"]
+__all__ = [
+    "GitConnector", "AgentOutputConnector", "WebhookConnector",
+    "GitHubConnector", "RssConnector",
+]
 
 
 def build_connector(cfg):
@@ -24,6 +29,10 @@ def build_connector(cfg):
             return AgentOutputConnector(**cfg.options)
         if cfg.type == "webhook":
             return WebhookConnector(**cfg.options)
+        if cfg.type == "github":
+            return GitHubConnector(**cfg.options)
+        if cfg.type == "rss":
+            return RssConnector(**cfg.options)
     except TypeError:
         pass
     return None
