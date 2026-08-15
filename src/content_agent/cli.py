@@ -58,8 +58,11 @@ def main(argv=None):
 
     if args.command == "measure":
         n = pipe.measure()
-        print(f"recorded {n} new outcome(s)")
-        print(pipe.state_summary())
+        # Silent-when-nothing watchdog pattern: only emit when something was
+        # recorded, so a no_agent cron delivers nothing on quiet ticks.
+        if n > 0:
+            print(f"recorded {n} new outcome(s)")
+            print(pipe.state_summary())
         return
 
     if args.command == "round":

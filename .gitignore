@@ -1,0 +1,6 @@
+# local data / state
+instances/*/data/
+data/
+__pycache__/
+*.egg-info/
+.venv/

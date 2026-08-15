@@ -1,61 +1,139 @@
-# Content Agent (coach mode)
+# Content Agent
 
-A self-improving X content agent. Watches what you're *actually building*, turns
-real work into content ideas, drafts posts engineered toward the actions X's
-open-sourced FYP algorithm ranks highest, and learns which strategies work from
-real measured engagement.
+**The marketing layer for what you ship.**
 
-Built from the signal in `xai-org/x-algorithm` (the For You feed code X open-
-sourced Aug 2026): the ranking action-weights in `home-mixer/params/param.rs`.
+Builders and coding agents ship all day. Nobody markets the output — the work
+disappears into commits and merge requests. Content Agent takes the continuous
+stream of what your agents produce and turns it into a publishing presence that
+learns from real engagement.
+
+It connects to your agent stack, understands the vision and market you're within,
+surfaces ideas, generates content, posts it, and learns from performance.
+
+## The idea in one line
+
+An agent that watches what you actually build, turns it into content engineered
+toward the actions the platform ranks highest, and gets smarter from real
+measured results — not vibes.
+
+## Build vs use (the design split)
+
+- **The product (this package)** is a stack-agnostic framework: connectors, an
+  idea layer, a generation planner, a publisher, and a learner. It doesn't care
+  whose stack or what you ship.
+- **A builder instance** is ONE config file wiring your stack connectors, your
+  vision/market profile, your account, and your voice. That's "using the
+  product." Everything in `instances/` is use; `src/content_agent/` is product.
+
+A builder adopting this never touches the framework — they copy
+`example-config.yaml`, fill in their stack and vision, and run the loop.
+
+## Why the timing is right
+
+X open-sourced its For You feed ranking algorithm (`xai-org/x-algorithm`, Aug
+2026). The action weights in `home-mixer/params/param.rs` tell us what the
+platform values: **reply 5.0 (→20 mutual), quote 5.0, share 2.0, follow 4.0,
+favorite 0.5** — plus structural levers (out-of-network discount 0.75,
+author-diversity decay 0.5). That gives the learn-from-performance loop a real,
+stable objective instead of a guess.
 
 ## The loop
 
 ```
-harvester (real work -> grounded seeds)     [zero LLM]
-   -> generator (pick strategy + levers)     [zero LLM]
-   -> YOU draft / review / post              [LLM step, in-session]
-   -> tracker (read real X engagement)       [zero LLM cron, every 12h]
-   -> learner (bandit reweights strategies)  [zero LLM cron]
-   -> repeat, favoring what actually works
+YOUR AGENT STACK   (git/CI, research, customer success, ecosystem, webhook...)
+        |  outputs & events
+        v
+HARVEST   connectors emit grounded "seeds" (facts, never invented)
+        v
+IDEAS     surface + rank ideas against your vision/market      [zero LLM]
+        v
+PLAN      pair winning strategies with best-fit ideas (bandit)  [zero LLM]
+        v
+DRAFT     agent turns idea+strategy into post text              [LLM, in-session]
+        v
+PUBLISH   post (coach = human reviews; auto = agent posts)
+        v
+LEARN     real engagement reweights strategies                  [zero-LLM cron]
+        v
+repeat, favoring what actually works
 ```
 
-## The insight
+Non-circular by construction: reward comes from real platform metrics, the
+objective prior comes from the platform's shipped weights, and nothing scores
+its own drafts with an LLM.
 
-PostProphet tried to *predict* reach from text dimensions — plateaued at Brier
-0.20 because impressions are controlled by the algorithm, not the text. A content
-agent doesn't predict; it *generates* and controls what gets posted. So the best
-feedback is real measured engagement, and X's open weights give it the reward
-function:
+## Install
 
-- reply 5.0 (->20.0 mutual), quote 5.0, share 2.0, follow 4.0, favorite 0.5
-- structural: out-of-network discount 0.75, author-diversity decay 0.5
+```bash
+pip install -e .
+# or just add src/ to your path
+```
 
-## Files
+## Use
 
-- `xweights.py` — reward function encoded from X's shipped params
-- `strategies.py` — the playbook (reply_starter, quote_worthy, share_worthy,
-  dwell_holder, follow_bait) x (mutual, out_of_network)
-- `harvester.py` — watches /opt/data repos+plans, emits grounded content seeds
-- `generator.py` — picks which (strategy, lever) combos to generate next
-- `learner.py` — Thompson-sampling bandit, reweights from real outcomes
-- `tracker.py` — reads real X engagement via xurl (no_agent cron)
-- `run.py` — interactive drafting round (LLM step)
+```bash
+content-agent init                    # write an example config
+content-agent round --config your.yaml --top 5   # drafting brief (LLM step follows)
+content-agent measure --config your.yaml         # read outcomes + retrain (cron)
+content-agent ideas --config your.yaml           # see surfaced ideas only
+```
 
-## Commands
+- `round` is the interactive step (needs an LLM — run it when you want drafts).
+- `measure` is the zero-LLM cron step — wire it to a schedule. It's silent when
+  there's nothing new, so a no_agent cron works without burning tokens.
 
-    python3 run.py --top 5     # start a drafting round (LLM step, in-session)
-    python3 tracker.py         # read engagement + retrain (or via cron)
-    python3 learner.py --update  # manual retrain
-    python3 harvester.py       # see current grounded seeds
+## Connectors (the portability layer)
 
-## Cron
+The product connects to any stack through a small, plain "seed" contract:
 
-`content-agent tracker + learner` (no_agent, every 12h, zero LLM tokens).
-Runs `~/.hermes/scripts/content_agent_tracker.sh`, silent when nothing new.
+```json
+{ "source": "git", "kind": "ship", "title": "shipped X",
+  "detail": "...", "date": "2026-08-15", "tags": [] }
+```
 
-## Setup needed
+Shipped connectors:
 
-xurl auth for the posting account (one-time, manual):
-    HOME=/opt/data/home xurl auth apps add <app> --client-id ... --client-secret ...
-    HOME=/opt/data/home xurl auth oauth2 --app <app> <handle>
-Until authed, tracker exits silently and nothing records.
+- **git** — emits `ship` seeds from recent commits (every builder has this).
+- **agent_output** — reads files any agent drops (research findings, customer
+  logs, ecosystem monitors) as `finding`/`signal` seeds.
+- **webhook** — a tiny local HTTP endpoint so any agent can POST a seed.
+
+Builders write their own thin adapter for stack-specific sources — it's a small
+callable returning a list of seed dicts. No framework changes needed.
+
+## Strategies (the playbook)
+
+Each draft is tagged with the action it's engineered to elicit, from X's weights:
+
+`reply_starter` · `quote_worthy` · `share_worthy` · `dwell_holder` · `follow_bait`
+each × `mutual` / `out_of_network`
+
+The learner (Thompson-sampling bandit) reweights these from real outcomes, so
+the playbook is a prior, not a rule.
+
+## Architecture
+
+```
+src/content_agent/
+  context.py     seed contract + validation
+  config.py      builder-instance config schema
+  connectors/    git, agent_output, webhook
+  ideas.py       surface + rank ideas against vision/market
+  generator.py   plan strategies x ideas, build draft prompts
+  learner.py     bandit over strategies, rewarded by real outcomes
+  reward.py      X action weights as the objective prior
+  tracker.py     read real engagement via xurl (no_agent cron)
+  pipeline.py    the public API / orchestration
+  cli.py         round / measure / ideas / init
+```
+
+## The PostProphet dogfood instance
+
+`instances/postprophet.yaml` is Buck's live instance — it markets the product
+itself, grounded in the product's own shipping. Meta and self-reinforcing: a
+content agent marketing the content-agent product, exercised exactly as a paying
+builder would.
+
+## License
+
+Apache-2.0

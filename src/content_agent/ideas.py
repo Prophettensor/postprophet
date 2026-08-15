@@ -56,31 +56,51 @@ def _tokenize(text: str) -> set:
 
 
 def _fit_score(seed: Seed, vision: VisionConfig) -> tuple[float, str]:
-    """0..1 vision fit. Simple, transparent, no LLM."""
+    """0..1 vision fit. Simple, transparent, no LLM.
+
+    Combines two signals:
+      1. source-affinity: does the seed's source/repo relate to the vision domain?
+         (e.g. a seed from 'content-agent' repo against a vision about content
+         agents). Strongest signal a builder cares.
+      2. keyword overlap: does the seed text literally mention vision terms?
+         Softened so short commit titles aren't punished.
+    """
     if not vision.positioning and not vision.problem:
         return 0.5, "no vision configured (neutral)"
 
     text = f"{seed.title} {seed.detail}"
     toks = _tokenize(text)
 
-    # Build a vision keyword bag from positioning + problem + market + audience.
+    # Vision keyword bag from positioning + problem + market + audience.
     bag = set()
     for field in (vision.positioning, vision.problem, vision.market):
         bag |= _tokenize(field)
     for a in vision.audience:
         bag |= _tokenize(a)
 
-    if not bag:
-        return 0.5, "vision has no extractable keywords (neutral)"
+    reasons = []
+    score = 0.0
 
-    overlap = len(toks & bag)
-    # normalize by the smaller of the two bag sizes to avoid length bias
-    denom = max(1, min(len(toks), len(bag)))
-    score = min(1.0, overlap / denom)
+    # Signal 1: source affinity — repo name / source label appearing in vision.
+    source = seed.source.lower()
+    source_toks = _tokenize(source) | set(source.split(":"))
+    src_shared = source_toks & bag
+    if src_shared:
+        score += 0.45
+        reasons.append(f"source '{seed.source}' matches vision ({len(src_shared)})")
 
-    # If the seed is about something the builder explicitly avoids, floor it.
-    # Require real overlap (>=2 shared tokens, or the whole avoid phrase present)
-    # so a single generic shared word (e.g. "algorithm") doesn't false-trigger.
+    # Signal 2: keyword overlap, softened (overlap / bag size), capped.
+    if bag:
+        overlap = len(toks & bag)
+        kw_score = min(1.0, overlap / max(1, len(bag))) * 0.55
+        if overlap >= 1:
+            score += kw_score
+            reasons.append(f"{overlap} keyword(s) overlap vision")
+
+    # Neutral prior so nothing is a hard zero — keeps exploration alive early.
+    score = min(1.0, 0.15 + score)
+
+    # Floor on explicit avoid topics (>=2 shared tokens or phrase present).
     for avoid in vision.avoid:
         avoid_toks = _tokenize(avoid)
         shared = avoid_toks & toks
@@ -89,9 +109,9 @@ def _fit_score(seed: Seed, vision: VisionConfig) -> tuple[float, str]:
             score *= 0.2
             return score, f"matches an avoid topic: '{avoid}'"
 
-    if score >= 0.5:
-        return score, f"overlaps vision keywords ({overlap}/{denom})"
-    return score, "low direct keyword overlap"
+    if score >= 0.4:
+        return round(score, 2), "; ".join(reasons) or "reasonable default fit"
+    return round(score, 2), "; ".join(reasons) or "low direct overlap"
 
 
 def surface_ideas(seeds: List[Seed], vision: VisionConfig,
