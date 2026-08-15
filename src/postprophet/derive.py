@@ -80,6 +80,10 @@ def _readme_head(repo_path):
             try:
                 with open(p, errors="ignore") as f:
                     lines = [l.strip() for l in f.read(1200).splitlines() if l.strip()]
+                # prefer the H1 title as positioning, else first real line
+                for l in lines:
+                    if l.startswith("# "):
+                        return l.lstrip("# ").strip()
                 for l in lines:
                     if l and not l.startswith(("#", "!", "[", "<")) and len(l) > 3:
                         return l

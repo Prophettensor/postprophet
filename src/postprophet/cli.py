@@ -28,15 +28,22 @@ def main(argv=None):
     p_round = sub.add_parser("round", help="produce a drafting brief")
     p_round.add_argument("--config", default="postprophet.yaml")
     p_round.add_argument("--top", type=int, default=5)
+    p_round.add_argument("--project", default=None,
+                         help="scope to ONE project (multi-project agents)")
 
     p_measure = sub.add_parser("measure", help="read outcomes + retrain (cron)")
     p_measure.add_argument("--config", default="postprophet.yaml")
 
     p_ideas = sub.add_parser("ideas", help="show surfaced ideas only")
     p_ideas.add_argument("--config", default="postprophet.yaml")
+    p_ideas.add_argument("--project", default=None,
+                         help="scope to ONE project (multi-project agents)")
 
     p_init = sub.add_parser("init", help="write an example config")
     p_init.add_argument("--config", default="postprophet.yaml")
+
+    p_projects = sub.add_parser("projects", help="list configured projects")
+    p_projects.add_argument("--config", default="postprophet.yaml")
 
     args = parser.parse_args(argv)
 
@@ -48,6 +55,18 @@ def main(argv=None):
     # data dir sits next to the config file
     data_dir = _data_dir(args.config)
     pipe = Pipeline.from_config(args.config, data_dir)
+
+    # scope to a project if requested (multi-project agents)
+    if getattr(args, "project", None):
+        pipe = pipe.for_project(args.project)
+
+    if args.command == "projects":
+        for p in pipe.config.projects:
+            print(f"{p.name:20s} repos={p.repos or '-'} "
+                  f"agents={p.agent_outputs or '-'} feeds={p.feeds or '-'}")
+        if not pipe.config.projects:
+            print("(no projects configured — single-project instance)")
+        return
 
     if args.command == "ideas":
         for idea in pipe.ideas():

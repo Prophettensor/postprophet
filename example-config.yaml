@@ -56,3 +56,22 @@ loop:
   measure_interval_hours: 12    # how often the no_agent cron resolves outcomes
   derive: true                  # derive vision/voice from your agent + repos
 
+# --- optional: multi-project (one agent, many products) ---
+# If you build several things and want to market them separately, declare each
+# as a Project. Each gets its own repos/agents/vision. Round with --project NAME.
+# Vision is per-project (from each project's README); voice stays global.
+#
+#   - market one of many:     just declare that one project
+#   - market several:         declare each, run 'round --project <each>'
+#   - some yes / some no:     declare only the ones you market
+#   - many agents, one project: list all their agent_output dirs under one project
+projects:
+  - name: my-product
+    repos:
+      - "."
+    # agent_outputs:        # optional: other agents feeding THIS project
+    #   - /path/to/research-agent-output
+    # feeds:                # optional: market feeds for this project
+    #   - https://rss.com/competitor-blog
+    # positioning: ""       # optional override; derived from repos if empty
+

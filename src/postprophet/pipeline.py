@@ -19,7 +19,8 @@ import json
 import os
 from datetime import datetime, timezone
 
-from .config import load_config, InstanceConfig, _merge_vision, _merge_voice
+from .config import (load_config, InstanceConfig, ConnectorConfig, VisionConfig,
+                     _merge_vision, _merge_voice)
 from .context import normalize, Seed
 from .ideas import surface_ideas, format_idea_brief
 from .learner import Learner
@@ -62,6 +63,68 @@ class Pipeline:
     def from_config(cls, config_path: str, data_dir: str) -> "Pipeline":
         cfg = load_config(config_path)
         return cls(cfg, data_dir)
+
+    def for_project(self, name: str) -> "Pipeline":
+        """Return a Pipeline scoped to ONE project. This is how a multi-project
+        agent markets one project (or one at a time) from the same config.
+
+        The scoped pipeline:
+          - only runs the connectors for THIS project's repos/agents/feeds
+          - uses the project's own vision (positioning/problem/market), which is
+            derived from the project's repos if not overridden in config
+          - keeps the global voice (voice is per-person, not per-project)
+        """
+        proj = next((p for p in self.config.projects if p.name == name), None)
+        if proj is None:
+            raise KeyError(f"no project named '{name}' in config; "
+                           f"available: {[p.name for p in self.config.projects]}")
+
+        # Build a scoped connector list for this project.
+        scoped_connectors = []
+        if proj.repos:
+            scoped_connectors.append(ConnectorConfig(
+                name=f"{name}-git", type="git", options={"repos": proj.repos}))
+        for i, out in enumerate(proj.agent_outputs):
+            scoped_connectors.append(ConnectorConfig(
+                name=f"{name}-agents{i}", type="agent_output",
+                options={"path": out, "kind": "finding"}))
+        for i, feed in enumerate(proj.feeds):
+            scoped_connectors.append(ConnectorConfig(
+                name=f"{name}-feed{i}", type="rss", options={"feeds": [feed]}))
+        # The agent's own memory always feeds every project (voice + background).
+        scoped_connectors.append(ConnectorConfig(
+            name=f"{name}-memory", type="agent_memory", options={}))
+
+        # Project vision: override where set in config, else derive from project repos.
+        vision = VisionConfig(
+            positioning=proj.positioning,
+            problem=proj.problem,
+            market=proj.market,
+            audience=self.config.vision.audience,
+            competitors=self.config.vision.competitors,
+            avoid=self.config.vision.avoid,
+        )
+        if not (vision.positioning or vision.problem) and proj.repos:
+            from . import derive
+            d, _, _ = derive.derive(repo_paths=proj.repos)
+            vision = VisionConfig(
+                positioning=vision.positioning or d.positioning,
+                problem=vision.problem or d.problem,
+                market=vision.market or d.market,
+                audience=self.config.vision.audience,
+                competitors=self.config.vision.competitors,
+                avoid=self.config.vision.avoid,
+            )
+
+        scoped_cfg = InstanceConfig(
+            name=f"{self.config.name}:{name}",
+            connectors=scoped_connectors,
+            vision=vision,
+            voice=self.config.voice,       # voice stays global (per-person)
+            account=self.config.account,
+            loop=self.config.loop,
+        )
+        return Pipeline(scoped_cfg, self.data_dir)
 
     def _connectors(self):
         conns = []

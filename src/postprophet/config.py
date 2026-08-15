@@ -82,6 +82,41 @@ class LoopConfig:
 
 
 @dataclass
+class ProjectConfig:
+    """A named marketing scope for a multi-project agent.
+
+    One agent may build many things. A Project is one of those things you want to
+    market. It carries the repos/agents that feed it and an optional per-project
+    vision override (vision is per-project; voice stays global to the agent).
+
+    If the config declares projects, rounds are scoped with --project NAME and
+    only that project's connectors/vision are used. Without projects, the config
+    behaves as a single-project instance (backward compatible).
+    """
+    name: str
+    # repos + agent sources that feed THIS project's marketing
+    repos: List[str] = field(default_factory=list)
+    agent_outputs: List[str] = field(default_factory=list)
+    feeds: List[str] = field(default_factory=list)
+    # optional per-project vision override (derived from its repos if empty)
+    positioning: str = ""
+    problem: str = ""
+    market: str = ""
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ProjectConfig":
+        return cls(
+            name=str(d.get("name", "")),
+            repos=list(d.get("repos", [])),
+            agent_outputs=list(d.get("agent_outputs", [])),
+            feeds=list(d.get("feeds", [])),
+            positioning=str(d.get("positioning", "")),
+            problem=str(d.get("problem", "")),
+            market=str(d.get("market", "")),
+        )
+
+
+@dataclass
 class InstanceConfig:
     name: str
     connectors: List[ConnectorConfig] = field(default_factory=list)
@@ -89,6 +124,7 @@ class InstanceConfig:
     voice: VoiceConfig = field(default_factory=VoiceConfig)
     account: AccountConfig = field(default_factory=AccountConfig)
     loop: LoopConfig = field(default_factory=LoopConfig)
+    projects: List[ProjectConfig] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, d: dict) -> "InstanceConfig":
@@ -101,6 +137,9 @@ class InstanceConfig:
             voice=VoiceConfig(**d.get("voice", {})),
             account=AccountConfig(**d.get("account", {})),
             loop=LoopConfig(**d.get("loop", {})),
+            projects=[
+                ProjectConfig.from_dict(p) for p in d.get("projects", [])
+            ],
         )
 
 
